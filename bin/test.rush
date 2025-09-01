@@ -55,28 +55,3 @@ fn main() {
         println("for: {i}");
     }
 }
-
-struct Iter {
-    i: int,
-    limit: int,
-}
-
-fn range(limit: int) -> Iter {
-    Iter {
-        i: 0,
-        limit: limit,
-    }
-}
-
-impl Iter {
-    fn next(self: Iter) -> int | void {
-        let then = self.i;
-
-        if then < self.limit {
-            self.i = then + 1;
-            then
-        } else {
-            NONE
-        }
-    }
-}

@@ -5,8 +5,8 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 pub use store::Stores;
-pub use util::display;
-use util::{println, display_entry, get, set, ordering};
+pub use util::dump;
+use util::{println, dump_entry, get, set, ordering};
 use math::{add, subtract};
 
 mod store;
@@ -101,7 +101,7 @@ enum BuiltInType {
 }
 
 pub fn init(ctx: &mut Context) {
-    ctx.built_in_funcs.insert("display", display_entry);
+    ctx.built_in_funcs.insert("dump", dump_entry);
     ctx.built_in_funcs.insert("greater", ordering::<1>);
     ctx.built_in_funcs.insert("equal", ordering::<0>);
     ctx.built_in_funcs.insert("less", ordering::<-1>);

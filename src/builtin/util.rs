@@ -14,17 +14,17 @@ pub fn println(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
     Ok(Value::default())
 }
 
-pub fn display_entry(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
+pub fn dump_entry(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
     let [value] = parameters.as_slice() else {
         return Err(Panic::new("bad parameters", []));
     };
 
     let mut repr = String::new();
-    display(&mut repr, engine, value);
+    dump(&mut repr, engine, value);
     Ok(engine.stores.new_string(repr))
 }
 
-pub fn display(dst: &mut String, engine: &Engine, value: &Value) {
+pub fn dump(dst: &mut String, engine: &Engine, value: &Value) {
     let stores = &engine.stores;
     match &value.built_in {
         BuiltIn::None => *dst += "<none>",
@@ -37,7 +37,7 @@ pub fn display(dst: &mut String, engine: &Engine, value: &Value) {
             *dst += "[ ";
 
             for item in stores.get_vec(*i).unwrap() {
-                display(dst, engine, item);
+                dump(dst, engine, item);
                 *dst += ", ";
             }
 
@@ -50,9 +50,9 @@ pub fn display(dst: &mut String, engine: &Engine, value: &Value) {
             let map = stores.get_map(*i).unwrap();
 
             for entry in &map.inner {
-                display(dst, engine, &entry.key);
+                dump(dst, engine, &entry.key);
                 *dst += ": ";
-                display(dst, engine, &entry.value);
+                dump(dst, engine, &entry.value);
                 *dst += ", ";
             }
 

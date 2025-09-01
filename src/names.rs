@@ -8,7 +8,7 @@ pub struct Names {
     pub different: NameIndex,
     pub multiply: NameIndex,
     pub subtract: NameIndex,
-    pub display: NameIndex,
+    pub dump: NameIndex,
     pub greater: NameIndex,
     pub divide: NameIndex,
     pub negate: NameIndex,
@@ -36,7 +36,7 @@ impl Default for Names {
         let different = push("different");
         let multiply = push("multiply");
         let subtract = push("subtract");
-        let display = push("display");
+        let dump = push("dump");
         let greater = push("greater");
         let divide = push("divide");
         let negate = push("negate");
@@ -55,7 +55,7 @@ impl Default for Names {
             different,
             multiply,
             subtract,
-            display,
+            dump,
             greater,
             divide,
             negate,
@@ -79,7 +79,7 @@ impl Names {
             different: NameIndex::MAX,
             multiply: NameIndex::MAX,
             subtract: NameIndex::MAX,
-            display: NameIndex::MAX,
+            dump: NameIndex::MAX,
             greater: NameIndex::MAX,
             divide: NameIndex::MAX,
             negate: NameIndex::MAX,

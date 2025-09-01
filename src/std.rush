@@ -1,3 +1,5 @@
+/* core types (keep in sync with `BuiltInType`) */
+
 struct void {}
 struct bool {}
 
@@ -13,96 +15,369 @@ struct type_ref {}
 struct func_ref {}
 struct name {}
 
+/* core type methods */
+
 impl void {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: void);
+    fn greater(self: void, other: any) -> bool;
+    fn equal(self: void, other: any) -> bool;
+    fn less(self: void, other: any) -> bool;
 }
 
 impl bool {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump();
+    fn greater(self: bool, other: any) -> bool;
+    fn equal(self: bool, other: any) -> bool;
+    fn less(self: bool, other: any) -> bool;
 }
 
 impl int {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: int);
+    fn greater(self: int, other: any) -> bool;
+    fn equal(self: int, other: any) -> bool;
+    fn less(self: int, other: any) -> bool;
 
-    fn add();
-    fn subtract();
+    fn add(self: int, other: any_num) -> any_num;
+    fn clamp(self: int, min: int, max: int) -> int;
+    fn subtract(self: int, other: any_num) -> any_num;
 }
 
 impl reg {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: reg);
+    fn greater(self: reg, other: any) -> bool;
+    fn equal(self: reg, other: any) -> bool;
+    fn less(self: reg, other: any) -> bool;
 
-    fn add();
-    fn subtract();
+    fn add(self: reg, other: any_num) -> any_num;
+    fn clamp(self: reg, min: reg, max: reg) -> reg;
+    fn subtract(self: reg, other: any_num) -> any_num;
 }
 
 impl f64 {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: f64);
+    fn greater(self: f64, other: any) -> bool;
+    fn equal(self: f64, other: any) -> bool;
+    fn less(self: f64, other: any) -> bool;
 
-    fn add();
-    fn subtract();
+    fn add(self: f64, other: any_num) -> any_num;
+    fn clamp(self: f64, min: f64, max: f64) -> f64;
+    fn subtract(self: f64, other: any_num) -> any_num;
+
+    fn round(self: f64) -> any_int;
+    fn floor(self: f64) -> any_int;
+    fn ceil(self: f64) -> any_int;
+    fn fract(self: f64) -> f64;
+    fn abs(self: f64) -> f64;
 }
 
 impl str {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: str);
+    fn bytes(self: str) -> bytes;
+    fn chars(self: str) -> vec;
+    fn greater(self: str, other: any) -> bool;
+    fn equal(self: str, other: any) -> bool;
+    fn less(self: str, other: any) -> bool;
 }
 
 impl vec {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: vec);
+    fn greater(self: vec, other: any) -> bool;
+    fn equal(self: vec, other: any) -> bool;
+    fn less(self: vec, other: any) -> bool;
 
-    fn get();
-    fn set();
+    fn len(self: vec) -> reg;
+    fn get(self: vec, index: any_int) -> any;
+    fn has(self: vec, index: any_int) -> bool;
+    fn set(self: vec, index: any_int, value: any) -> any;
 }
 
 impl map {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: map);
+    fn greater(self: map, other: any) -> bool;
+    fn equal(self: map, other: any) -> bool;
+    fn less(self: map, other: any) -> bool;
 
-    fn get();
-    fn set();
+    fn len(self: vec) -> reg;
+    fn get(self: map, key: any) -> any;
+    fn has(self: map, key: any) -> bool;
+    fn nth(self: map, index: any_int) -> any;
+    fn set(self: map, key: any, value: any) -> any;
 }
 
 impl type_ref {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: type_ref);
+    fn greater(self: type_ref, other: any) -> bool;
+    fn equal(self: type_ref, other: any) -> bool;
+    fn less(self: type_ref, other: any) -> bool;
 }
 
 impl func_ref {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: func_ref);
+    fn greater(self: func_ref, other: any) -> bool;
+    fn equal(self: func_ref, other: any) -> bool;
+    fn less(self: func_ref, other: any) -> bool;
 }
 
 impl name {
-    fn display();
-    fn greater();
-    fn equal();
-    fn less();
+    fn dump(self: name);
+    fn greater(self: name, other: any) -> bool;
+    fn equal(self: name, other: any) -> bool;
+    fn less(self: name, other: any) -> bool;
 }
 
+/* iterators */
+
+struct NumIter {
+    i: int,
+    limit: int,
+}
+
+fn range(start: int, limit: int) -> NumIter {
+    NumIter {
+        i: start,
+        limit: limit,
+    }
+}
+
+impl NumIter {
+    fn next(self: NumIter) -> int | void {
+        let then = self.i;
+
+        if then < self.limit {
+            self.i = then + 1;
+            then
+        } else {
+            NONE
+        }
+    }
+}
+
+struct AvoidIter {
+    base: iter,
+    avoided: any,
+}
+
+impl AvoidIter {
+    fn next(self: AvoidIter) -> any {
+        let next = self.base.next();
+
+        while next == self.avoided {
+            next = self.base.next();
+        }
+
+        next
+    }
+}
+
+struct MapIter {
+    base: iter,
+    mapper: func_ref,
+}
+
+impl MapIter {
+    fn next(self: MapIter) -> any {
+        let next = self.base.next();
+
+        while next != NONE {
+            let func = self.mapper;
+            next = func(next);
+        }
+
+        next
+    }
+}
+
+struct TakeIter {
+    base: iter,
+    remaining: reg,
+}
+
+impl TakeIter {
+    fn next(self: TakeIter) -> any {
+        if self.remaining == 0 {
+            return NONE;
+        }
+
+        self.remaining -= 1;
+        self.base.next()
+    }
+}
+
+struct UntilIter {
+    base: iter,
+    end: any,
+    reached: bool,
+}
+
+impl UntilIter {
+    fn next(self: UntilIter) -> any {
+        if self.reached {
+            return NONE;
+        }
+
+        let item = self.base.next();
+
+        if item == self.end {
+            self.reached = true;
+            return NONE;
+        }
+
+        item
+    }
+}
+
+struct ChainedIter {
+    a: iter,
+    b: iter,
+    switched: bool,
+}
+
+impl ChainedIter {
+    fn next(self: ChainedIter) -> any {
+        if self.switched {
+            return self.b.next();
+        }
+
+        let item = self.a.next();
+
+        if item == NONE {
+            self.switched = true;
+            return self.b.next();
+        }
+
+        item
+    }
+}
+
+fn _avoid(iter: iter, avoided: any) -> AvoidIter {
+    if avoided == NONE {
+        println("avoided cannot be void");
+        return NONE;
+    }
+
+    AvoidIter {
+        iter,
+        avoided,
+    }
+}
+
+fn _map(iter: iter, mapper: func_ref) -> MapIter {
+    MapIter {
+        iter,
+        mapper,
+    }
+}
+
+fn _take(iter: iter, num: any_int) -> TakeIter {
+    TakeIter {
+        iter,
+        remaining: num,
+    }
+}
+
+fn _until(iter: iter, end: any) -> UntilIter {
+    UntilIter {
+        iter,
+        end,
+        reached: false,
+    }
+}
+
+fn _chain(a: iter, b: iter) -> ChainedIter {
+    ChainedIter {
+        a,
+        b,
+        switched: false,
+    }
+}
+
+fn _contains(iter: iter, value: any) -> bool {
+    locate(iter, value) != NONE
+}
+
+fn _locate(iter: iter, value: any) -> reg | void {
+    let i = 0;
+
+    for item in iter {
+        if item == value {
+            return i;
+        }
+
+        i += 1;
+    }
+
+    NONE
+}
+
+fn _find(iter: iter, func: func_ref) -> any {
+    for item in iter {
+        if func(item) {
+            return item;
+        }
+    }
+
+    NONE
+}
+
+fn _skip(iter: iter, num: any_int) -> iter {
+    while num > 0 {
+        iter.next();
+    }
+
+    iter
+}
+
+/* misc types */
+
 fn println();
+
+type any_int = reg | int;
+type opt_len = reg | void;
+
+struct byte_r {}
+struct byte_w {}
+
+struct socket {
+    reader: byte_r,
+    writer: byte_w,
+}
+
+impl byte_r {
+    fn available(self: byte_r) -> opt_len;
+
+    fn read_bytes(self: byte_r, len: opt_len) -> bytes;
+    fn read_until(self: byte_r, token: str) -> str;
+    fn read_str(self: byte_r, len: opt_len) -> str;
+
+    fn read_u8(self: byte_r) -> reg;
+    fn read_u16(self: byte_r) -> reg;
+    fn read_u32(self: byte_r) -> reg;
+    fn read_u64(self: byte_r) -> any_int;
+
+    fn read_i8(self: byte_r) -> int;
+    fn read_i16(self: byte_r) -> int;
+    fn read_i32(self: byte_r) -> int;
+    fn read_i64(self: byte_r) -> int;
+}
+
+impl byte_w {
+    fn write_bytes(self: byte_w, data: vec | bytes);
+    fn write_str(self: byte_w, data: str);
+
+    fn write_u8(self: byte_w, data: reg);
+    fn write_u16(self: byte_w, data: reg);
+    fn write_u32(self: byte_w, data: reg);
+    fn write_u64(self: byte_w, data: reg);
+
+    fn write_i8(self: byte_w, data: int);
+    fn write_i16(self: byte_w, data: int);
+    fn write_i32(self: byte_w, data: int);
+    fn write_i64(self: byte_w, data: int);
+}
+
+fn open_r(path: str) -> byte_r;
+fn open_w(path: str) -> byte_w;
+
+fn resolve(name: str) -> str;
+fn connect_tcp(ip: str, port: any_int) -> socket;
+fn connect_tls(ip: str, port: any_int) -> socket;

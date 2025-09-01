@@ -173,7 +173,7 @@ impl Context {
                         let fg_type = &backup.types[value.type_index];
                         let path = backup.stringify_path(&fg_type.canonical_path);
                         let mut repr = String::new();
-                        builtin::display(&mut repr, &engine, &value);
+                        builtin::dump(&mut repr, &engine, &value);
                         let mut truncated = false;
 
                         while repr.len() > 80 {
