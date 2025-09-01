@@ -1,0 +1,82 @@
+use println;
+use void;
+use none;
+use str;
+use int;
+
+const TEST = 5;
+
+struct Test {
+    a: int,
+    b: int,
+}
+
+impl Test {
+    fn sum(self: Test) -> int {
+        self.a + self.b
+    }
+
+    fn classify(self: Test) -> str {
+        if self.a < self.b {
+            "a is less than b"
+        } else if self.a > self.b {
+            "a is greater than b"
+        } else {
+            "a is equal to b"
+        }
+    }
+}
+
+fn alter_and_sum(map: Test) -> int {
+    map.b = TEST - 20;
+    Test::sum(map)
+}
+
+fn main() {
+    let map = Test {
+        a: 5,
+        b: 9,
+    };
+
+    let sum = alter_and_sum(map);
+    let expected = sum == 0 - 10;
+    println("sum = {sum}; expected = {expected}");
+
+    let vs = map.classify();
+    println("order: {vs}");
+
+    let i = 0;
+    while i < 3 {
+        println("while: {i}");
+        i = i + 1;
+    }
+
+    for i in range(3) {
+        println("for: {i}");
+    }
+}
+
+struct Iter {
+    i: int,
+    limit: int,
+}
+
+fn range(limit: int) -> Iter {
+    Iter {
+        i: 0,
+        limit: limit,
+    }
+}
+
+impl Iter {
+    fn next(self: Iter) -> int | void {
+        let then = self.i;
+
+        if then < self.limit {
+            self.i = then + 1;
+            then
+        } else {
+            none
+        }
+    }
+}

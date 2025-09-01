@@ -1,0 +1,18 @@
+[package]
+name = "rush"
+version = "1.0.0"
+edition = "2021"
+authors = [ "Nathan ROYER <nathan.royer.pro@gmail.com>" ]
+description = "interpreted language"
+license = "MIT"
+categories = [ "no-std" ]
+keywords = [ "no_std" ]
+repository = "https://github.com/NathanRoyer/rush"
+
+[[bin]]
+name = "rush"
+path = "bin/rush.rs"
+
+[dependencies]
+litemap = "0.8"
+# async-fifo = "0.6"
