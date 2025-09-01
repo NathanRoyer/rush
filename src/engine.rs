@@ -1,10 +1,10 @@
-use super::builtin::{names, raw_types, BuiltIn, Stores, Entry};
+use super::builtin::{BuiltIn, Stores, Entry};
 use super::tokenizer::CodeStr;
 use std::sync::Arc;
 
 use super::{
     TypeIndex, FuncIndex, NameIndex, ConstIndex, TypeList, Context,
-    FuncData, Value, FuncRes, Panic
+    FuncData, Value, FuncRes, Panic,
 };
 
 pub type Fields = Vec<(NameIndex, Expression)>;
@@ -47,8 +47,8 @@ pub enum Statement {
 
 pub struct Engine {
     pub context: Arc<Context>,
-    locals: Vec<Value>,
     pub stores: Stores,
+    locals: Vec<Value>,
 }
 
 pub enum BlockExit {
@@ -108,8 +108,8 @@ impl Engine {
                     Ok(ret) => Ok(ret),
                     Err(BlockExit::Return(ret)) => Ok(ret),
                     Err(BlockExit::Panic(panic)) => Err(panic),
-                    Err(BlockExit::Break(_)) => panic("break outside of loop"),
-                    Err(BlockExit::Continue) => panic("continue outside of loop"),
+                    Err(BlockExit::Break(_)) => panic("unexpected 'break'"),
+                    Err(BlockExit::Continue) => panic("unexpected 'continue'"),
                 };
 
                 self.locals = backup;
@@ -145,12 +145,21 @@ impl Engine {
             };
 
             match statement {
+                Statement::LocalPush(_maybe_list, maybe_expr) => {
+                    let value = match maybe_expr {
+                        Some(expr) => self.eval(expr)?,
+                        None => Value::from(BuiltIn::None),
+                    };
+
+                    self.locals.push(value);
+                },
                 Statement::For(iter, body) => {
                     let iter_val = self.eval(iter)?;
 
                     loop {
                         let this = iter_val.clone();
-                        let item = self.method(this, names::NEXT, vec![])?;
+                        let method = self.context.names.next;
+                        let item = self.method(this, method, vec![])?;
 
                         if let BuiltIn::None = item.built_in {
                             break;
@@ -168,14 +177,6 @@ impl Engine {
                         }
                     }
                 },
-                Statement::LocalPush(_maybe_list, maybe_expr) => {
-                    let value = match maybe_expr {
-                        Some(expr) => self.eval(expr)?,
-                        None => Value::from(BuiltIn::None),
-                    };
-
-                    self.locals.push(value);
-                },
                 Statement::While(cond_expr, body) => loop {
                     let condition = self.eval(cond_expr)?;
                     if let BuiltIn::Bool(false) = condition.built_in {
@@ -190,7 +191,7 @@ impl Engine {
                     }
                 },
                 Statement::Eval(expr) => match self.eval(expr)? {
-                    value if value.type_index == raw_types::VOID => (),
+                    value if value.type_index == super::VOID_TYPE => (),
                     other => break Ok(other),
                 },
                 Statement::Return(maybe_expr) => {
@@ -267,12 +268,12 @@ impl Engine {
             Expression::Index(subject, index) => {
                 let this = self.eval(subject)?;
                 let index = self.eval(index)?;
-                self.method(this, names::GET, vec![index])?
+                self.method(this, self.context.names.get, vec![index])?
             },
             Expression::Field(subject, name) => {
                 let this = self.eval(subject)?;
                 let index = Value::from(BuiltIn::Name(*name));
-                self.method(this, names::GET, vec![index])?
+                self.method(this, self.context.names.get, vec![index])?
             },
             Expression::If(checks, fallback) => {
                 let mut ret = None;
@@ -330,7 +331,7 @@ impl Engine {
                     string += &part.prefix;
 
                     let this = self.locals[part.local].clone();
-                    let ret = self.method(this, names::DISPLAY, vec![])?;
+                    let ret = self.method(this, self.context.names.display, vec![])?;
 
                     let BuiltIn::Str(i, _rc) = ret.built_in else {
                         let msg = "display method returned non-string";
@@ -390,12 +391,12 @@ impl Engine {
 
         let this = self.eval(subject)?;
         let parameters = vec![index, new_value];
-        let _ret = self.method(this, names::SET, parameters);
+        let _ret = self.method(this, self.context.names.set, parameters);
 
         Ok(())
     }
 
-    pub fn method(&mut self, this: Value, name: NameIndex, mut parameters: Vec<Value>) -> FuncRes {
+    fn method(&mut self, this: Value, name: NameIndex, mut parameters: Vec<Value>) -> FuncRes {
         parameters.insert(0, this.clone());
 
         let bg_type_index = this.built_in.type_index();

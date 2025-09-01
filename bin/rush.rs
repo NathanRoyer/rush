@@ -1,7 +1,7 @@
-use rush::init;
+use rush::Context;
 
 fn main() {
-    let mut context = init();
+    let mut context = Context::new();
     let src = include_str!("test.rush");
     context.parse("test", src);
     context.run();
