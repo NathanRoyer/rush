@@ -50,6 +50,7 @@ pub enum Token<'a> {
     In,
     Let,
     Use,
+    Any,
     Impl,
     Type,
     Const,
@@ -270,6 +271,7 @@ fn try_alphanumeric<'a>(text: &mut &'a str) -> Option<Token<'a>> {
 
         "if" => Token::If,
         "for" => Token::For,
+        "any" => Token::Any,
         "else" => Token::Else,
         "loop" => Token::Loop,
         "match" => Token::Match,
@@ -277,6 +279,7 @@ fn try_alphanumeric<'a>(text: &mut &'a str) -> Option<Token<'a>> {
         "break" => Token::Break,
         "return" => Token::Return,
         "continue" => Token::Continue,
+
 
         other => Token::Alphanumeric(other),
     };

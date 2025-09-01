@@ -12,6 +12,7 @@ pub type MatchArm = (TypeList, Expression);
 pub type Block = Vec<Statement>;
 pub type LocalIndex = usize;
 
+#[derive(Debug)]
 pub enum Expression {
     Assignment(Option<Box<Expression>>, Box<Expression>),
     Method(Box<Expression>, NameIndex, Vec<Expression>),
@@ -35,9 +36,10 @@ pub enum Expression {
     None,
 }
 
+#[derive(Debug)]
 pub enum Statement {
     For(Expression, Block),
-    LocalPush(Option<TypeList>, Option<Expression>),
+    LocalPush(TypeList, Option<Expression>),
     While(Expression, Block),
     Return(Option<Expression>),
     Break(Option<Expression>),
@@ -128,7 +130,7 @@ impl Engine {
         if let Some(name) = dbg_path {
             let ret = ret.as_ref().ok().unwrap();
             let mut ret_str = String::new();
-            super::builtin::display(&mut ret_str, self, &ret);
+            super::builtin::dump(&mut ret_str, self, &ret);
             println!("<ret of {name} = {ret_str}>");
         }
 
@@ -331,10 +333,10 @@ impl Engine {
                     string += &part.prefix;
 
                     let this = self.locals[part.local].clone();
-                    let ret = self.method(this, self.context.names.display, vec![])?;
+                    let ret = self.method(this, self.context.names.dump, vec![])?;
 
                     let BuiltIn::Str(i, _rc) = ret.built_in else {
-                        let msg = "display method returned non-string";
+                        let msg = "dump method returned non-string";
                         return Panic::new(msg, []).as_exit();
                     };
 
