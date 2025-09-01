@@ -1,8 +1,8 @@
-use println;
-use void;
-use none;
-use str;
-use int;
+use std::println;
+use std::void;
+use std::str;
+use std::int;
+use NONE;
 
 const TEST = 5;
 
@@ -76,7 +76,7 @@ impl Iter {
             self.i = then + 1;
             then
         } else {
-            none
+            NONE
         }
     }
 }

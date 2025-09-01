@@ -1,7 +1,6 @@
-use super::{NameIndex, TypeIndex, FuncIndex, Context, Value, BuiltInFunc, FuncRes, Panic};
+use super::{NameIndex, TypeIndex, FuncIndex, Context, Value, FuncRes, Panic, Item};
 use super::engine::{Engine, Expression};
 use std::cmp::Ordering;
-use litemap::LiteMap;
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -42,80 +41,6 @@ mod util;
 
 */
 
-pub mod raw_types {
-    use super::TypeIndex;
-
-    pub const VOID: TypeIndex = 0;
-    pub const BOOL: TypeIndex = 1;
-    pub const INT:  TypeIndex = 2;
-    pub const REG:  TypeIndex = 3;
-    pub const F64:  TypeIndex = 4;
-    pub const VEC:  TypeIndex = 5;
-    pub const STR:  TypeIndex = 6;
-    pub const MAP:  TypeIndex = 7;
-    pub const TYPE: TypeIndex = 8;
-    pub const FUNC: TypeIndex = 9;
-    pub const NAME: TypeIndex = 10;
-}
-
-pub mod names {
-    use super::NameIndex;
-
-    pub const NEGATE: NameIndex = 0;
-    pub const DIFFERENT: NameIndex = 1;
-    pub const EQUAL: NameIndex = 2;
-    pub const GREATER_EQUAL: NameIndex = 3;
-    pub const LESS_EQUAL: NameIndex = 4;
-    pub const GREATER: NameIndex = 5;
-    pub const LESS: NameIndex = 6;
-    pub const DIVIDE: NameIndex = 7;
-    pub const MULTIPLY: NameIndex = 8;
-    pub const SUBTRACT: NameIndex = 9;
-    pub const ADD: NameIndex = 10;
-    pub const NEXT: NameIndex = 11;
-    pub const SET: NameIndex = 12;
-    pub const GET: NameIndex = 13;
-    pub const DISPLAY: NameIndex = 14;
-    pub const PRINTLN: NameIndex = 15;
-    pub const MAIN: NameIndex = 16;
-
-    pub const VOID: NameIndex = 17;
-    pub const BOOL: NameIndex = 18;
-    pub const INT:  NameIndex = 19;
-    pub const REG:  NameIndex = 20;
-    pub const F64:  NameIndex = 21;
-    pub const VEC:  NameIndex = 22;
-    pub const STR:  NameIndex = 23;
-    pub const MAP:  NameIndex = 24;
-    pub const TYPE: NameIndex = 25;
-    pub const FUNC: NameIndex = 26;
-    pub const NAME: NameIndex = 27;
-
-    pub const NONE:  NameIndex = 28;
-    pub const FALSE: NameIndex = 29;
-    pub const TRUE:  NameIndex = 30;
-
-    // insert new names before this comment and update _LEN
-    pub const _LEN: NameIndex = 31;
-}
-
-pub mod funcs {
-    use super::FuncIndex;
-
-    pub const DISPLAY:  FuncIndex = 0;
-    pub const PRINTLN:  FuncIndex = 1;
-    pub const ADD:      FuncIndex = 2;
-    pub const GET:      FuncIndex = 3;
-    pub const SET:      FuncIndex = 4;
-    pub const SUBTRACT: FuncIndex = 5;
-    pub const LESS:     FuncIndex = 6;
-    pub const EQUAL:    FuncIndex = 7;
-    pub const GREATER:  FuncIndex = 8;
-
-    // insert new names before this comment and update _LEN
-    pub const _LEN: FuncIndex = 9;
-}
-
 pub type RefCount = Arc<()>;
 
 pub struct RushStr {
@@ -148,9 +73,9 @@ pub type MapIndex = usize;
 pub enum BuiltIn {
     #[default]
     None,
+    Bool(bool),
     Int(i128),
     Reg(usize),
-    Bool(bool),
     Float(f64),
     Str(StrIndex, RefCount),
     Vec(VecIndex, RefCount),
@@ -160,106 +85,43 @@ pub enum BuiltIn {
     Name(NameIndex),
 }
 
-type Method = (NameIndex, FuncIndex);
-
-fn methods(inner: &[Method]) -> LiteMap<NameIndex, FuncIndex> {
-    LiteMap::from_iter(inner.iter().map(Clone::clone))
+#[repr(usize)]
+enum BuiltInType {
+    Void = super::VOID_TYPE,
+    Bool,
+    Int,
+    Reg,
+    Float,
+    Str,
+    Vec,
+    Map,
+    Type,
+    Func,
+    Name,
 }
 
-pub fn init() -> Context {
-    use super::{Item, Type, TypeData, Function, FuncData, ItemPath};
+pub fn init(ctx: &mut Context) {
+    ctx.built_in_funcs.insert("display", display_entry);
+    ctx.built_in_funcs.insert("greater", ordering::<1>);
+    ctx.built_in_funcs.insert("equal", ordering::<0>);
+    ctx.built_in_funcs.insert("less", ordering::<-1>);
+    ctx.built_in_funcs.insert("subtract", subtract);
+    ctx.built_in_funcs.insert("println", println);
+    ctx.built_in_funcs.insert("add", add);
+    ctx.built_in_funcs.insert("get", get);
+    ctx.built_in_funcs.insert("set", set);
 
-    let names: [&str; names::_LEN] = [
-        "negate", "different", "equal", "greater_equal", "less_equal",
-        "greater", "less", "divide", "multiply", "subtract", "add",
-        "next", "set", "get", "display", "println", "main", "void",
-        "bool", "int", "reg", "f64", "vec", "str", "map", "type",
-        "func", "name", "none", "false", "true",
-    ];
+    ctx.constants.push(Expression::Bool(false));
+    ctx.constants.push(Expression::Bool(true));
+    ctx.constants.push(Expression::None);
 
-    let names = names.into_iter().map(String::from).collect();
-    let mut functions = Vec::new();
-    let mut constants = Vec::new();
-    let mut resolver = LiteMap::new();
-    let mut types = Vec::new();
+    let false_n = ctx.names.get("false");
+    let true_n = ctx.names.get("true");
+    let none_n = ctx.names.get("NONE");
 
-    let mut add_type = |name: NameIndex, index: TypeIndex, method_slice: &[Method]| {
-        let path: ItemPath = [name].into();
-        resolver.insert(path.clone(), Item::Type(index));
-
-        types.push(Type {
-            canonical_path: path,
-            data: TypeData::Struct(vec![]),
-            methods: methods(method_slice),
-        });
-    };
-
-    let subtract_m = (names::SUBTRACT, funcs::SUBTRACT);
-    let display_m = (names::DISPLAY, funcs::DISPLAY);
-    let add_m = (names::ADD, funcs::ADD);
-    let get_m = (names::GET, funcs::GET);
-    let set_m = (names::SET, funcs::SET);
-
-    let less_m = (names::LESS, funcs::LESS);
-    let equal_m = (names::EQUAL, funcs::EQUAL);
-    let greater_m = (names::GREATER, funcs::GREATER);
-
-    let num_m = [display_m, add_m, subtract_m, less_m, equal_m, greater_m];
-    let basic_m = [display_m, less_m, equal_m, greater_m];
-
-    add_type(names::VOID, raw_types::VOID, &basic_m);
-    add_type(names::BOOL, raw_types::BOOL, &basic_m);
-
-    add_type(names::INT, raw_types::INT, &num_m);
-    add_type(names::REG, raw_types::REG, &num_m);
-    add_type(names::F64, raw_types::F64, &num_m);
-
-    add_type(names::STR, raw_types::STR, &[display_m, add_m, less_m, equal_m, greater_m]);
-    add_type(names::VEC, raw_types::VEC, &[display_m, add_m, get_m, set_m, less_m, equal_m, greater_m]);
-    add_type(names::MAP, raw_types::MAP, &[display_m, get_m, set_m, less_m, equal_m, greater_m]);
-
-    add_type(names::TYPE, raw_types::TYPE, &basic_m);
-    add_type(names::FUNC, raw_types::FUNC, &basic_m);
-    add_type(names::NAME, raw_types::NAME, &basic_m);
-
-    let mut add_method = |name: NameIndex, func: FuncIndex, ptr: BuiltInFunc| {
-        let path: ItemPath = [name].into();
-        resolver.insert(path.clone(), Item::Function(func));
-
-        functions.push(Function {
-            canonical_path: path,
-            parameters: vec![],
-            return_type: vec![],
-            data: FuncData::BuiltIn(ptr),
-        });
-    };
-
-    // DISPLAY
-    add_method(names::DISPLAY, funcs::DISPLAY, display_entry);
-    add_method(names::PRINTLN, funcs::PRINTLN, println);
-    add_method(names::ADD, funcs::ADD, add);
-    add_method(names::GET, funcs::GET, get);
-    add_method(names::SET, funcs::SET, set);
-    add_method(names::SUBTRACT, funcs::SUBTRACT, subtract);
-    add_method(names::LESS, funcs::LESS, ordering::<-1>);
-    add_method(names::EQUAL, funcs::EQUAL, ordering::<0>);
-    add_method(names::GREATER, funcs::GREATER, ordering::<1>);
-
-    constants.push(Expression::Bool(false));
-    constants.push(Expression::Bool(true));
-    constants.push(Expression::None);
-
-    resolver.insert([names::FALSE].into(), Item::Const(0));
-    resolver.insert([names::TRUE].into(), Item::Const(1));
-    resolver.insert([names::NONE].into(), Item::Const(2));
-
-    Context {
-        functions,
-        constants,
-        resolver,
-        names,
-        types,
-    }
+    ctx.resolver.insert([false_n].into(), Item::Const(0));
+    ctx.resolver.insert([true_n].into(), Item::Const(1));
+    ctx.resolver.insert([none_n].into(), Item::Const(2));
 }
 
 // | +   | int | reg | f64 |
@@ -296,17 +158,17 @@ fn prep_num(a: &BuiltIn, b: &BuiltIn) -> Option<Pair> {
 impl BuiltIn {
     pub fn type_index(&self) -> TypeIndex {
         match self {
-            BuiltIn::None => raw_types::VOID,
-            BuiltIn::Bool(_) => raw_types::BOOL,
-            BuiltIn::Int(_) => raw_types::INT,
-            BuiltIn::Reg(_) => raw_types::REG,
-            BuiltIn::Float(_) => raw_types::F64,
-            BuiltIn::Str(_, _) => raw_types::STR,
-            BuiltIn::Vec(_, _) => raw_types::VEC,
-            BuiltIn::Map(_, _) => raw_types::MAP,
-            BuiltIn::Type(_) => raw_types::TYPE,
-            BuiltIn::Func(_) => raw_types::FUNC,
-            BuiltIn::Name(_) => raw_types::NAME,
+            BuiltIn::None => BuiltInType::Void as _,
+            BuiltIn::Bool(_) => BuiltInType::Bool as _,
+            BuiltIn::Int(_) => BuiltInType::Int as _,
+            BuiltIn::Reg(_) => BuiltInType::Reg as _,
+            BuiltIn::Float(_) => BuiltInType::Float as _,
+            BuiltIn::Str(_, _) => BuiltInType::Str as _,
+            BuiltIn::Vec(_, _) => BuiltInType::Vec as _,
+            BuiltIn::Map(_, _) => BuiltInType::Map as _,
+            BuiltIn::Type(_) => BuiltInType::Type as _,
+            BuiltIn::Func(_) => BuiltInType::Func as _,
+            BuiltIn::Name(_) => BuiltInType::Name as _,
         }
     }
 

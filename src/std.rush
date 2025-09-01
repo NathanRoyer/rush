@@ -1,0 +1,108 @@
+struct void {}
+struct bool {}
+
+struct int {}
+struct reg {}
+struct f64 {}
+
+struct str {}
+struct vec {}
+struct map {}
+
+struct type_ref {}
+struct func_ref {}
+struct name {}
+
+impl void {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+}
+
+impl bool {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+}
+
+impl int {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+
+    fn add();
+    fn subtract();
+}
+
+impl reg {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+
+    fn add();
+    fn subtract();
+}
+
+impl f64 {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+
+    fn add();
+    fn subtract();
+}
+
+impl str {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+}
+
+impl vec {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+
+    fn get();
+    fn set();
+}
+
+impl map {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+
+    fn get();
+    fn set();
+}
+
+impl type_ref {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+}
+
+impl func_ref {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+}
+
+impl name {
+    fn display();
+    fn greater();
+    fn equal();
+    fn less();
+}
+
+fn println();

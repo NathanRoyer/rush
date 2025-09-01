@@ -2,12 +2,11 @@ use super::tokenizer::{Token, TokenData, CodeStr, DynPart};
 use super::engine::{LocalIndex, Statement, Expression, MatchArm};
 
 use super::{
+    Function, TypeData, Field, NameIndex, ItemPath, Names,
     Context, TypeIndex, FuncData, TypeList, Item, Type,
-    Function, TypeData, Field, NameIndex, ItemPath,
 };
 
-use super::builtin::{names, raw_types};
-use std::mem::{replace, take};
+use std::mem::replace;
 use litemap::LiteMap;
 use std::sync::Arc;
 
@@ -52,8 +51,10 @@ pub fn parse(
     mod_name: &str,
     tokens: &[TokenData],
 ) -> Res<()> {
+    let context = replace(ctx, Context::empty());
+
     let mut parser = Parser {
-        context: take(ctx),
+        context,
         current_path: Vec::new(),
         locals: Vec::new(),
         line: 1,
@@ -71,9 +72,9 @@ pub fn parse(
 }
 
 struct Parser {
-    context: Context,
     current_path: Vec<NameIndex>,
     locals: Vec<String>,
+    context: Context,
     line: usize,
 }
 
@@ -95,12 +96,12 @@ impl Parser {
         while let Some(token) = iter.next() {
             self.line = token.line;
 
-            let (maybe_decl, is_block) = match &**token {
-                Token::Const => (Some(Self::decl_const as Decl), false),
-                Token::Struct => (Some(Self::decl_type as Decl), true),
-                Token::Type => (Some(Self::decl_type as Decl), false),
-                Token::Fn => (Some(Self::decl_fn as Decl), true),
-                Token::Impl => (None, true),
+            let maybe_decl = match &**token {
+                Token::Const => Some(Self::decl_const as Decl),
+                Token::Struct => Some(Self::decl_type as Decl),
+                Token::Type => Some(Self::decl_type as Decl),
+                Token::Fn => Some(Self::decl_fn as Decl),
+                Token::Impl => None,
                 Token::Use => {
                     self.parse_use(iter)?;
                     continue;
@@ -117,7 +118,7 @@ impl Parser {
                 }
             }
 
-            self.skip_item(iter, is_block)?;
+            self.skip_item(iter)?;
         }
 
         Ok(())
@@ -172,20 +173,20 @@ impl Parser {
         while let Some(token) = iter.next() {
             self.line = token.line;
 
-            let is_block = match &**token {
+            match &**token {
                 Token::Impl => {
                     self.decl_impl(iter)?;
                     continue;
                 },
-                Token::Struct => true,
-                Token::Const => false,
-                Token::Type => false,
-                Token::Use => false,
-                Token::Fn => true,
+                Token::Struct => (),
+                Token::Const => (),
+                Token::Type => (),
+                Token::Use => (),
+                Token::Fn => (),
                 _other => return self.error("unexpected token"),
-            };
+            }
 
-            self.skip_item(iter, is_block)?;
+            self.skip_item(iter)?;
         }
 
         Ok(())
@@ -201,12 +202,14 @@ impl Parser {
         let mut iter = tokens.iter();
 
         while let Some(token) = iter.next() {
+            self.line = token.line;
+
             let Token::Fn = &**token else {
                 return self.error("expected 'fn'");
             };
 
             let name = self.parse_name(&mut iter)?;
-            self.skip_item(&mut iter, true)?;
+            self.skip_item(&mut iter)?;
 
             let Item::Function(func_index) = self.decl_fn() else {
                 unreachable!();
@@ -229,7 +232,7 @@ impl Parser {
                 Token::Type => self.define_alias(iter)?,
                 Token::Impl => self.define_impl(iter)?,
                 Token::Fn => self.define_fn(iter, None)?,
-                Token::Use => self.skip_item(iter, false)?,
+                Token::Use => self.skip_item(iter)?,
                 _other => unreachable!(),
             }
         }
@@ -247,18 +250,12 @@ impl Parser {
 
     fn get_name(&mut self, name: &str) -> Res<NameIndex> {
         let first_char = name.chars().next().unwrap();
-        let mut index = self.context.names.len();
 
         if !first_char.is_alphabetic() {
             return self.error("invalid name");
         }
 
-        match self.context.names.iter().position(|n| n == name) {
-            Some(i) => index = i,
-            None => self.context.names.push(name.to_string()),
-        };
-
-        Ok(index)
+        Ok(self.context.names.get(name))
     }
 
     fn rel_path(&mut self, name: NameIndex) -> ItemPath {
@@ -268,15 +265,15 @@ impl Parser {
         ret
     }
 
-    fn skip_item(&mut self, iter: &mut Tokens, block: bool) -> Res<()> {
+    fn skip_item(&mut self, iter: &mut Tokens) -> Res<()> {
         loop {
             let Some(next) = iter.next() else {
                 return self.error("unexpected end of file");
             };
 
-            match (&**next, block) {
-                (Token::Braced(_), true) => break,
-                (Token::Semi, false) => break,
+            match &**next {
+                Token::Braced(_) => break,
+                Token::Semi => break,
                 _other => (),
             }
         }
@@ -452,27 +449,36 @@ impl Parser {
 
                 ret
             },
-            _other => vec![raw_types::VOID],
+            _other => vec![super::VOID_TYPE],
         };
 
-        let Some(Token::Braced(body)) = next else {
-            return self.error("invalid body");
+        let data = match next {
+            Some(Token::Semi) => {
+                let name = &self.context.names[name];
+                match self.context.built_in_funcs.get(name) {
+                    Some(ptr) => FuncData::BuiltIn(*ptr),
+                    None => return self.error("unknown builtin"),
+                }
+            },
+            Some(Token::Braced(body)) => {
+                for (name_i, _) in &parameters {
+                    let name_str = &self.context.names[*name_i];
+                    self.locals.push(name_str.to_string());
+                }
+
+                let body = self.parse_block(body)?;
+                self.locals.clear();
+
+                FuncData::Rush(body)
+            },
+            _other => return self.error("invalid body"),
         };
-
-        for (name_i, _) in &parameters {
-            let name_str = &self.context.names[*name_i];
-            self.locals.push(name_str.clone());
-        }
-
-        let canonical_path = self.rel_path(name);
-        let body = self.parse_block(body)?;
-        self.locals.clear();
 
         let func = Function {
-            canonical_path,
+            canonical_path: self.rel_path(name),
             parameters,
             return_type,
-            data: FuncData::Rush(body),
+            data,
         };
 
         self.context.functions[index] = func;
@@ -560,9 +566,9 @@ impl Parser {
             let mut iter = body[1..].iter();
             self.line = token.line;
 
-            let mut opt_expr = || match body.get(1).map(|t| &**t) {
+            let mut opt_expr = || match iter.next().map(tok) {
                 Some(Token::Semi) => Ok(None),
-                _ => match self.parse_expr(&mut iter)? {
+                _ => match self.parse_expr(&mut body.iter())? {
                     (expr, Some(Token::Semi)) => Ok(Some(expr)),
                     _ => return self.error("expected ';'"),
                 },
@@ -668,11 +674,12 @@ impl Parser {
     }
 
     fn parse_expr<'a>(&mut self, iter: &mut Tokens<'a>) -> Res<(Expression, MaybeToken<'a>)> {
+        let negate_m = self.context.names.negate;
         let mut parts = Vec::new();
 
         let wrap_negate = |negate: bool, expr: Expression| {
             match negate {
-                true => Expression::Method(Box::new(expr), names::NEGATE, Vec::new()),
+                true => Expression::Method(Box::new(expr), negate_m, Vec::new()),
                 false => expr,
             }
         };
@@ -876,7 +883,7 @@ impl Parser {
                     Some(Item::Function(i)) => Ok(Expression::Func(i)),
                     Some(Item::Const(i)) => Ok(Expression::Const(i)),
                     Some(Item::Type(i)) => Ok(Expression::Type(i)),
-                    _other => return self.error("invalid number, item or local: {text:?}"),
+                    _other => return self.error("invalid number, item or local"),
                 }
             },
             Token::Bracketed(tokens) => {
@@ -1008,7 +1015,7 @@ impl Parser {
                         false => &mut parts[i].left_hand,
                     };
 
-                    let method = part.math_op.method_name();
+                    let method = part.math_op.method_name(&self.context.names);
                     let left = Box::new(part.left_hand);
                     let right = vec![replace(right_hand, Expression::None)];
                     *right_hand = Expression::Method(left, method, right);
@@ -1046,18 +1053,18 @@ fn parse_i128(text: &str) -> Result<Option<i128>, ()> {
 }
 
 impl MathOp {
-    fn method_name(self) -> NameIndex {
+    fn method_name(self, names: &Names) -> NameIndex {
         match self {
-            Self::Different => names::DIFFERENT,
-            Self::Equal => names::EQUAL,
-            Self::GreaterEqual => names::GREATER_EQUAL,
-            Self::LessEqual => names::LESS_EQUAL,
-            Self::Greater => names::GREATER,
-            Self::Less => names::LESS,
-            Self::Divide => names::DIVIDE,
-            Self::Multiply => names::MULTIPLY,
-            Self::Subtract => names::SUBTRACT,
-            Self::Add => names::ADD,
+            Self::Different => names.different,
+            Self::Equal => names.equal,
+            Self::GreaterEqual => names.greater_equal,
+            Self::LessEqual => names.less_equal,
+            Self::Greater => names.greater,
+            Self::Less => names.less,
+            Self::Divide => names.divide,
+            Self::Multiply => names.multiply,
+            Self::Subtract => names.subtract,
+            Self::Add => names.add,
         }
     }
 
