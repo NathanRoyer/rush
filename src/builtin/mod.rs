@@ -6,8 +6,9 @@ use std::sync::Arc;
 
 pub use store::Stores;
 pub use util::dump;
-use util::{println, dump_entry, get, set, ordering};
-use math::{add, subtract};
+use util::{println, dump_entry, get, set, ordering, len, has, nth};
+use math::{OP_ROUND, OP_FLOOR, OP_FRACT, OP_CEIL};
+use math::{add, subtract, clamp, abs, f64_op};
 
 mod store;
 mod math;
@@ -101,15 +102,27 @@ enum BuiltInType {
 }
 
 pub fn init(ctx: &mut Context) {
-    ctx.built_in_funcs.insert("dump", dump_entry);
     ctx.built_in_funcs.insert("greater", ordering::<1>);
     ctx.built_in_funcs.insert("equal", ordering::<0>);
     ctx.built_in_funcs.insert("less", ordering::<-1>);
     ctx.built_in_funcs.insert("subtract", subtract);
     ctx.built_in_funcs.insert("println", println);
+    ctx.built_in_funcs.insert("dump", dump_entry);
+    ctx.built_in_funcs.insert("clamp", clamp);
     ctx.built_in_funcs.insert("add", add);
     ctx.built_in_funcs.insert("get", get);
     ctx.built_in_funcs.insert("set", set);
+    ctx.built_in_funcs.insert("abs", abs);
+    ctx.built_in_funcs.insert("len", len);
+    ctx.built_in_funcs.insert("has", has);
+
+    ctx.built_in_funcs.insert("nth_key", nth::<true>);
+    ctx.built_in_funcs.insert("nth_value", nth::<false>);
+
+    ctx.built_in_funcs.insert("round", f64_op::<OP_ROUND>);
+    ctx.built_in_funcs.insert("floor", f64_op::<OP_FLOOR>);
+    ctx.built_in_funcs.insert("fract", f64_op::<OP_FRACT>);
+    ctx.built_in_funcs.insert("ceil", f64_op::<OP_CEIL>);
 
     ctx.constants.push(Expression::Bool(false));
     ctx.constants.push(Expression::Bool(true));

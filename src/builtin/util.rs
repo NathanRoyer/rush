@@ -270,3 +270,63 @@ pub fn set(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
 
     Ok(Value::default())
 }
+
+pub fn len(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
+    let [this] = parameters.as_slice() else {
+        return Err(Panic::new("bad parameters", []));
+    };
+
+    let s = &engine.stores;
+
+    let result = match &this.built_in {
+        BuiltIn::Vec(i, _rc) => s.get_vec(*i).unwrap().len(),
+        BuiltIn::Str(i, _rc) => s.get_str(*i).unwrap().len(),
+        _ => return Err(Panic::new("unsupported value", [])),
+    };
+
+    Ok(Value::from(BuiltIn::Reg(result)))
+}
+
+pub fn has(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
+    let [this, index] = parameters.as_slice() else {
+        return Err(Panic::new("bad parameters", []));
+    };
+
+    let s = &engine.stores;
+
+    let result = match &this.built_in {
+        BuiltIn::Vec(i, _rc) => {
+            let Some(j) = index.built_in.as_usize() else {
+                return Ok(Value::from(BuiltIn::Bool(false)));
+            };
+
+            j < s.get_vec(*i).unwrap().len()
+        },
+        BuiltIn::Map(i, _rc) => map_find(engine, *i, index).is_ok(),
+        _ => return Err(Panic::new("unsupported value", [])),
+    };
+
+    Ok(Value::from(BuiltIn::Bool(result)))
+}
+
+pub fn nth<const KEY: bool>(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
+    let [this, index] = parameters.as_slice() else {
+        return Err(Panic::new("bad parameters", []));
+    };
+
+    let Some(j) = index.built_in.as_usize() else {
+        return Err(Panic::new("unsupported value", []));
+    };
+
+    let BuiltIn::Map(i, _rc) = &this.built_in else {
+        return Err(Panic::new("unsupported value", []));
+    };
+
+    let map = engine.stores.get_map(*i).unwrap();
+    let entry = &map.inner[j];
+
+    match KEY {
+        true => Ok(entry.key.clone()),
+        false => Ok(entry.value.clone()),
+    }
+}

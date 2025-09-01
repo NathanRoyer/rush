@@ -12,6 +12,7 @@ pub type MatchArm = (TypeList, Expression);
 pub type Block = Vec<Statement>;
 pub type LocalIndex = usize;
 
+#[derive(Debug)]
 pub enum Expression {
     Assignment(Option<Box<Expression>>, Box<Expression>),
     Method(Box<Expression>, NameIndex, Vec<Expression>),
@@ -35,9 +36,10 @@ pub enum Expression {
     None,
 }
 
+#[derive(Debug)]
 pub enum Statement {
     For(Expression, Block),
-    LocalPush(Option<TypeList>, Option<Expression>),
+    LocalPush(TypeList, Option<Expression>),
     While(Expression, Block),
     Return(Option<Expression>),
     Break(Option<Expression>),

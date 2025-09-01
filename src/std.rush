@@ -1,3 +1,5 @@
+use NONE;
+
 /* core types (keep in sync with `BuiltInType`) */
 
 struct void {}
@@ -25,7 +27,7 @@ impl void {
 }
 
 impl bool {
-    fn dump();
+    fn dump(self: bool);
     fn greater(self: bool, other: any) -> bool;
     fn equal(self: bool, other: any) -> bool;
     fn less(self: bool, other: any) -> bool;
@@ -37,6 +39,7 @@ impl int {
     fn equal(self: int, other: any) -> bool;
     fn less(self: int, other: any) -> bool;
 
+    fn abs(self: int) -> any_int;
     fn add(self: int, other: any_num) -> any_num;
     fn clamp(self: int, min: int, max: int) -> int;
     fn subtract(self: int, other: any_num) -> any_num;
@@ -59,6 +62,7 @@ impl f64 {
     fn equal(self: f64, other: any) -> bool;
     fn less(self: f64, other: any) -> bool;
 
+    fn abs(self: f64) -> f64;
     fn add(self: f64, other: any_num) -> any_num;
     fn clamp(self: f64, min: f64, max: f64) -> f64;
     fn subtract(self: f64, other: any_num) -> any_num;
@@ -67,13 +71,13 @@ impl f64 {
     fn floor(self: f64) -> any_int;
     fn ceil(self: f64) -> any_int;
     fn fract(self: f64) -> f64;
-    fn abs(self: f64) -> f64;
 }
 
 impl str {
     fn dump(self: str);
-    fn bytes(self: str) -> bytes;
-    fn chars(self: str) -> vec;
+    /* fn bytes(self: str) -> bytes; */
+    /* fn chars(self: str) -> vec; */
+    fn add(self: str, other: str) -> str;
     fn greater(self: str, other: any) -> bool;
     fn equal(self: str, other: any) -> bool;
     fn less(self: str, other: any) -> bool;
@@ -81,6 +85,7 @@ impl str {
 
 impl vec {
     fn dump(self: vec);
+    fn add(self: vec, other: vec) -> vec;
     fn greater(self: vec, other: any) -> bool;
     fn equal(self: vec, other: any) -> bool;
     fn less(self: vec, other: any) -> bool;
@@ -100,7 +105,8 @@ impl map {
     fn len(self: vec) -> reg;
     fn get(self: map, key: any) -> any;
     fn has(self: map, key: any) -> bool;
-    fn nth(self: map, index: any_int) -> any;
+    fn nth_key(self: map, index: any_int) -> any;
+    fn nth_value(self: map, index: any_int) -> any;
     fn set(self: map, key: any, value: any) -> any;
 }
 
@@ -153,7 +159,7 @@ impl NumIter {
 }
 
 struct AvoidIter {
-    base: iter,
+    base: any,
     avoided: any,
 }
 
@@ -170,7 +176,7 @@ impl AvoidIter {
 }
 
 struct MapIter {
-    base: iter,
+    base: any,
     mapper: func_ref,
 }
 
@@ -188,15 +194,15 @@ impl MapIter {
 }
 
 struct TakeIter {
-    base: iter,
+    base: any,
     remaining: reg,
 }
 
 impl TakeIter {
     fn next(self: TakeIter) -> any {
         if self.remaining == 0 {
-            return NONE;
-        }
+            return;
+        };
 
         self.remaining -= 1;
         self.base.next()
@@ -204,7 +210,7 @@ impl TakeIter {
 }
 
 struct UntilIter {
-    base: iter,
+    base: any,
     end: any,
     reached: bool,
 }
@@ -212,23 +218,23 @@ struct UntilIter {
 impl UntilIter {
     fn next(self: UntilIter) -> any {
         if self.reached {
-            return NONE;
-        }
+            return;
+        };
 
         let item = self.base.next();
 
         if item == self.end {
             self.reached = true;
-            return NONE;
-        }
+            return;
+        };
 
         item
     }
 }
 
 struct ChainedIter {
-    a: iter,
-    b: iter,
+    a: any,
+    b: any,
     switched: bool,
 }
 
@@ -236,23 +242,23 @@ impl ChainedIter {
     fn next(self: ChainedIter) -> any {
         if self.switched {
             return self.b.next();
-        }
+        };
 
         let item = self.a.next();
 
         if item == NONE {
             self.switched = true;
             return self.b.next();
-        }
+        };
 
         item
     }
 }
 
-fn _avoid(iter: iter, avoided: any) -> AvoidIter {
+fn _avoid(iter: any, avoided: any) -> AvoidIter {
     if avoided == NONE {
         println("avoided cannot be void");
-        return NONE;
+        return;
     }
 
     AvoidIter {
@@ -261,21 +267,21 @@ fn _avoid(iter: iter, avoided: any) -> AvoidIter {
     }
 }
 
-fn _map(iter: iter, mapper: func_ref) -> MapIter {
+fn _map(iter: any, mapper: func_ref) -> MapIter {
     MapIter {
         iter,
         mapper,
     }
 }
 
-fn _take(iter: iter, num: any_int) -> TakeIter {
+fn _take(iter: any, num: any_int) -> TakeIter {
     TakeIter {
         iter,
         remaining: num,
     }
 }
 
-fn _until(iter: iter, end: any) -> UntilIter {
+fn _until(iter: any, end: any) -> UntilIter {
     UntilIter {
         iter,
         end,
@@ -283,7 +289,7 @@ fn _until(iter: iter, end: any) -> UntilIter {
     }
 }
 
-fn _chain(a: iter, b: iter) -> ChainedIter {
+fn _chain(a: any, b: any) -> ChainedIter {
     ChainedIter {
         a,
         b,
@@ -291,38 +297,34 @@ fn _chain(a: iter, b: iter) -> ChainedIter {
     }
 }
 
-fn _contains(iter: iter, value: any) -> bool {
+fn _contains(iter: any, value: any) -> bool {
     locate(iter, value) != NONE
 }
 
-fn _locate(iter: iter, value: any) -> reg | void {
+fn _locate(iter: any, value: any) -> reg | void {
     let i = 0;
 
     for item in iter {
         if item == value {
             return i;
-        }
+        };
 
         i += 1;
-    }
-
-    NONE
+    };
 }
 
-fn _find(iter: iter, func: func_ref) -> any {
+fn _find(iter: any, func: func_ref) -> any {
     for item in iter {
         if func(item) {
             return item;
-        }
-    }
-
-    NONE
+        };
+    };
 }
 
-fn _skip(iter: iter, num: any_int) -> iter {
+fn _skip(iter: any, num: any_int) -> any {
     while num > 0 {
         iter.next();
-    }
+    };
 
     iter
 }
@@ -332,6 +334,10 @@ fn _skip(iter: iter, num: any_int) -> iter {
 fn println();
 
 type any_int = reg | int;
+type any_num = reg | int;
+
+/* todo
+
 type opt_len = reg | void;
 
 struct byte_r {}
@@ -381,3 +387,5 @@ fn open_w(path: str) -> byte_w;
 fn resolve(name: str) -> str;
 fn connect_tcp(ip: str, port: any_int) -> socket;
 fn connect_tls(ip: str, port: any_int) -> socket;
+
+*/

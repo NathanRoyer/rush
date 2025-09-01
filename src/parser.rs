@@ -11,6 +11,7 @@ use litemap::LiteMap;
 use std::sync::Arc;
 
 const PRIO_LIMIT: u8 = 3;
+const ANY_TYPE: TypeIndex = TypeIndex::MAX;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum MathOp {
@@ -193,7 +194,7 @@ impl Parser {
     }
 
     fn decl_impl(&mut self, iter: &mut Tokens) -> Res<()> {
-        let index = self.parse_type_ref(iter)?;
+        let index = self.parse_type_ref(iter, false)?;
 
         let Some(Token::Braced(tokens)) = iter.next().map(tok) else {
             return self.error("expected '{{'");
@@ -226,6 +227,8 @@ impl Parser {
 
     fn define_items(&mut self, iter: &mut Tokens) -> Res<()> {
         while let Some(token) = iter.next() {
+            self.line = token.line;
+
             match &**token {
                 Token::Struct => self.define_struct(iter)?,
                 Token::Const => self.define_const(iter)?,
@@ -251,7 +254,7 @@ impl Parser {
     fn get_name(&mut self, name: &str) -> Res<NameIndex> {
         let first_char = name.chars().next().unwrap();
 
-        if !first_char.is_alphabetic() {
+        if first_char != '_' && !first_char.is_alphabetic() {
             return self.error("invalid name");
         }
 
@@ -332,16 +335,12 @@ impl Parser {
             return self.error("expected '='");
         };
 
-        let mut list = Vec::new();
+        let (list, Some(Token::Semi)) = self.parse_type_spec(iter)? else {
+            return self.error("expected '|' or ';'");
+        };
 
-        loop {
-            list.push(self.parse_type_ref(iter)?);
-
-            match iter.next().map(tok) {
-                Some(Token::Or) => (),
-                Some(Token::Semi) => break,
-                _ => return self.error("expected '|' or ';'"),
-            }
+        if list.is_empty() {
+            return self.error("cannot alias 'any'");
         }
 
         let handle = &mut self.context.types[index];
@@ -352,7 +351,7 @@ impl Parser {
     }
 
     fn define_impl(&mut self, iter: &mut Tokens) -> Res<()> {
-        let type_index = self.parse_type_ref(iter)?;
+        let type_index = self.parse_type_ref(iter, false)?;
 
         let Some(Token::Braced(tokens)) = iter.next().map(tok) else {
             return self.error("expected '{{'");
@@ -361,6 +360,8 @@ impl Parser {
         let mut iter = tokens.iter();
 
         while let Some(token) = iter.next() {
+            self.line = token.line;
+
             let Token::Fn = &**token else {
                 return self.error("expected 'fn'");
             };
@@ -385,21 +386,14 @@ impl Parser {
 
         while iter.len() != 0 {
             let name = self.parse_name(&mut iter)?;
-            let mut list = Vec::new();
 
             let Some(Token::Colon) = iter.next().map(tok) else {
                 return self.error("expected ':'");
             };
 
-            loop {
-                list.push(self.parse_type_ref(&mut iter)?);
-
-                match iter.next().map(tok) {
-                    Some(Token::Or) => (),
-                    Some(Token::Comma) => break,
-                    _ => return self.error("expected '|' or ','"),
-                }
-            }
+            let (list, Some(Token::Comma)) = self.parse_type_spec(&mut iter)? else {
+                return self.error("expected '|' or ','");
+            };
 
             fields.push(Field {
                 name,
@@ -432,24 +426,9 @@ impl Parser {
         let mut par_iter = param_tokens.iter();
         let parameters = self.parse_param_defs(&mut par_iter)?;
 
-        let mut next = iter.next().map(tok);
-
-        let return_type = match next {
-            Some(Token::SigRet) => {
-                let mut ret = Vec::new();
-
-                next = loop {
-                    ret.push(self.parse_type_ref(iter)?);
-
-                    match iter.next().map(tok) {
-                        Some(Token::Or) => (),
-                        other => break other,
-                    }
-                };
-
-                ret
-            },
-            _other => vec![super::VOID_TYPE],
+        let (return_type, next) = match iter.next().map(tok) {
+            Some(Token::SigRet) => self.parse_type_spec(iter)?,
+            other => (vec![super::VOID_TYPE], other),
         };
 
         let data = match next {
@@ -496,17 +475,7 @@ impl Parser {
                 return self.error("expected ':'");
             };
 
-            let mut list = Vec::new();
-
-            let next = loop {
-                list.push(self.parse_type_ref(iter)?);
-
-                match iter.next().map(tok) {
-                    Some(Token::Or) => (),
-                    other => break other,
-                }
-            };
-
+            let (list, next) = self.parse_type_spec(iter)?;
             params.push((name, list));
 
             match next {
@@ -544,13 +513,43 @@ impl Parser {
         }
     }
 
-    fn parse_type_ref(&mut self, iter: &mut Tokens) -> Res<TypeIndex> {
-        let first = self.parse_name(iter)?;
+    fn parse_type_ref(&mut self, iter: &mut Tokens, allow_any: bool) -> Res<TypeIndex> {
+        let first = match iter.next().map(tok) {
+            Some(Token::Alphanumeric(name)) => self.get_name(name)?,
+            Some(Token::Any) if allow_any => return Ok(ANY_TYPE),
+            _other => return self.error("expected type ref"),
+        };
 
         match self.resolve(first, iter)? {
             Some(Item::Type(i)) => Ok(i),
             _other => return self.error("invalid type"),
         }
+    }
+
+    fn parse_type_spec<'b, 'a>(
+        &mut self,
+        iter: &'b mut Tokens<'a>,
+    ) -> Res<(Vec<TypeIndex>, Option<&'b Token<'a>>)> {
+        let mut list = Vec::new();
+        let mut allow_any = true;
+
+        let next = loop {
+            let index = self.parse_type_ref(iter, allow_any)?;
+
+            if index == ANY_TYPE {
+                break iter.next().map(tok);
+            };
+
+            list.push(index);
+            allow_any = false;
+
+            match iter.next().map(tok) {
+                Some(Token::Or) => (),
+                other => break other,
+            }
+        };
+
+        Ok((list, next))
     }
 
     fn parse_block(&mut self, mut body: &[TokenData]) -> Res<Vec<Statement>> {
@@ -573,6 +572,8 @@ impl Parser {
                     _ => return self.error("expected ';'"),
                 },
             };
+
+            println!("token = {token:?}");
 
             let statement = match &**token {
                 Token::Let => self.parse_let(&mut iter)?,
@@ -598,6 +599,8 @@ impl Parser {
                 },
             };
 
+            println!("stmt = {statement:?}");
+
             skip(&mut body, iter);
             statements.push(statement);
         }
@@ -611,24 +614,12 @@ impl Parser {
             return self.error("expected name");
         };
 
-        let mut next = iter.next().map(tok);
         let mut expr = None;
-        let mut spec = None;
 
-        if let Some(Token::Colon) = next {
-            let mut list = Vec::new();
-
-            next = loop {
-                list.push(self.parse_type_ref(iter)?);
-
-                match iter.next().map(tok) {
-                    Some(Token::Or) => (),
-                    other => break other,
-                }
-            };
-
-            spec = Some(list);
-        }
+        let (spec, mut next) = match iter.next().map(tok) {
+            Some(Token::Colon) => self.parse_type_spec(iter)?,
+            other => (Vec::new(), other),
+        };
 
         if let Some(Token::Equal) = next {
             let (e, n) = self.parse_expr(iter)?;
@@ -976,17 +967,11 @@ impl Parser {
         let mut arms = Vec::new();
 
         while iter.len() != 0 {
-            let mut list = Vec::new();
+            let (list, next) = self.parse_type_spec(iter)?;
 
-            loop {
-                list.push(self.parse_type_ref(iter)?);
-
-                match iter.next().map(tok) {
-                    Some(Token::Or) => (),
-                    Some(Token::Then) => break,
-                    _ => return self.error("expected '|' or ';'"),
-                }
-            }
+            let Some(Token::Then) = next else {
+                return self.error("expected '|' or ';'");
+            };
 
             let (expr, Some(Token::Comma)) = self.parse_expr(iter)? else {
                 return self.error("expected ','");

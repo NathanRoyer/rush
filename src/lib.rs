@@ -93,7 +93,7 @@ pub struct Context {
     names: Names,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum Item {
     Function(FuncIndex),
     Redirect(ItemPath),
