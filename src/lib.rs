@@ -116,6 +116,7 @@ struct Type {
 enum FuncData {
     BuiltIn(BuiltInFunc),
     Rush(engine::Block),
+    Redirect(FuncIndex),
 }
 
 #[allow(dead_code)]

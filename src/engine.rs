@@ -83,8 +83,12 @@ impl Engine {
 
     pub fn call(&mut self, i: FuncIndex, parameters: Vec<Value>) -> FuncRes {
         let ctx = self.context.clone();
-        let func = &ctx.functions[i];
+        let mut func = &ctx.functions[i];
         let mut dbg_path = None;
+
+        while let FuncData::Redirect(i) = &func.data {
+            func = &ctx.functions[*i];
+        }
 
         if false {
             let path = &func.canonical_path;
@@ -94,6 +98,7 @@ impl Engine {
         }
 
         let mut ret = match &func.data {
+            FuncData::Redirect(_) => unreachable!(/* handled earlier */),
             FuncData::Rush(body) => {
                 let backup = self.locals.drain(..).collect();
                 let mut param_iter = parameters.into_iter();

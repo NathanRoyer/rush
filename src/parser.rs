@@ -429,8 +429,8 @@ impl Parser {
                 return self.error("imported function not found");
             };
 
-            let src = &self.context.functions[src_i];
-            self.context.functions[index] = src.clone();
+            let data = FuncData::Redirect(src_i);
+            self.context.functions[index].data = data;
             return Ok(());
         }
 
