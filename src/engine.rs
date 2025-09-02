@@ -1,5 +1,6 @@
 use super::builtin::{BuiltIn, Stores, Entry};
 use super::tokenizer::CodeStr;
+use litemap::LiteMap;
 use std::sync::Arc;
 
 use super::{
@@ -7,12 +8,12 @@ use super::{
     FuncData, Value, FuncRes, Panic, TypeData,
 };
 
-pub type Fields = Vec<(NameIndex, Expression)>;
+pub type Fields = LiteMap<NameIndex, Expression>;
 pub type MatchArm = (TypeList, Expression);
 pub type Block = Vec<Statement>;
 pub type LocalIndex = usize;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Expression {
     Assignment(Option<Box<Expression>>, Box<Expression>),
     Method(Box<Expression>, NameIndex, Vec<Expression>),
@@ -33,6 +34,7 @@ pub enum Expression {
     Integer(i128),
     Float(f64),
     Bool(bool),
+    #[default]
     None,
 }
 
@@ -163,12 +165,14 @@ impl Engine {
             };
 
             match statement {
-                Statement::LocalPush(_maybe_list, maybe_expr) => {
+                Statement::LocalPush(spec, maybe_expr) => {
                     let value = match maybe_expr {
                         Some(expr) => self.eval(expr)?,
-                        None => Value::from(BuiltIn::None),
+                        None => Value::default(),
                     };
 
+                    let msg = "value did not pass let binding type check";
+                    let value = self.type_check(value, &spec, msg)?;
                     self.locals.push(value);
                 },
                 Statement::For(iter, body) => {
@@ -328,15 +332,34 @@ impl Engine {
                 self.stores.new_vec(out)
             },
             Expression::Struct(type_index, fields) => {
+                let ctx = self.context.clone();
+                let handle = &ctx.types[*type_index];
+                let mut remaining = fields.len();
                 let mut entries = Vec::new();
+                let none = Expression::None;
 
-                for (name_i, expr) in fields {
+                let TypeData::Struct(field_defs) = &handle.data else {
+                    return Panic::new("not a struct", []).as_exit();
+                };
+
+                for field in field_defs {
+                    let maybe_expr = fields.get(&field.name);
+                    remaining -= maybe_expr.is_some() as usize;
+
+                    let msg = "value did not pass field type check";
+                    let value = self.eval(maybe_expr.unwrap_or(&none))?;
+                    let value = self.type_check(value, &field.spec, msg)?;
+
                     let entry = Entry {
-                        key: Value::from(BuiltIn::Name(*name_i)),
-                        value: self.eval(expr)?,
+                        key: Value::from(BuiltIn::Name(field.name)),
+                        value,
                     };
 
                     entries.push(entry);
+                }
+
+                if remaining > 0 {
+                    return Panic::new("unexpected field(s)", []).as_exit();
                 }
 
                 let index = Some(*type_index);

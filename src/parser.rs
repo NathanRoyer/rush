@@ -392,13 +392,13 @@ impl Parser {
                 return self.error("expected ':'");
             };
 
-            let (list, Some(Token::Comma)) = self.parse_type_spec(&mut iter)? else {
+            let (spec, Some(Token::Comma)) = self.parse_type_spec(&mut iter)? else {
                 return self.error("expected '|' or ','");
             };
 
             fields.push(Field {
                 name,
-                list,
+                spec,
             });
         }
 
@@ -420,10 +420,20 @@ impl Parser {
             None => (self.index_of(name), false),
         };
 
-        let next = iter.next().map(tok);
+        let mut next = iter.next().map(tok);
+        let mut target = name;
+
+        if let Some(Token::Equal) = next {
+            target = self.parse_name(iter)?;
+            next = iter.next().map(tok);
+
+            let Some(Token::Semi) = next else {
+                return self.error("expected ';'");
+            };
+        }
 
         if let (Some(Token::Semi), true) = (next, allow_import) {
-            let item = self.resolve(name, &mut [].iter());
+            let item = self.resolve(target, &mut [].iter());
 
             let Ok(Some(Item::Function(src_i))) = item else {
                 return self.error("imported function not found");
@@ -742,7 +752,7 @@ impl Parser {
                     },
                     Some(Token::Braced(tokens)) => {
                         let mut iter = tokens.iter();
-                        let mut fields = Vec::new();
+                        let mut fields = LiteMap::new();
 
                         let Expression::Type(index) = expr else {
                             // could be 'if condition {'
@@ -774,7 +784,9 @@ impl Parser {
                                 _ => return self.error("expected ':' or ','"),
                             };
 
-                            fields.push((name, field_expr));
+                            if fields.insert(name, field_expr).is_some() {
+                                return self.error("field already specified");
+                            }
                         }
 
                         expr = Expression::Struct(index, fields);

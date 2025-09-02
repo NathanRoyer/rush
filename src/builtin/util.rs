@@ -344,3 +344,50 @@ pub fn nth<const KEY: bool>(engine: &mut Engine, parameters: Vec<Value>) -> Func
         false => Ok(entry.value.clone()),
     }
 }
+
+pub const T_F64: usize = 0;
+pub const T_REG: usize = 1;
+pub const T_INT: usize = 2;
+
+pub fn num_from<const T: usize>(_engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
+
+    let [value] = parameters.as_slice() else {
+        return Err(Panic::new("bad parameters", []));
+    };
+
+    let built_in = match () {
+        () if T == T_F64 => match &value.built_in {
+            BuiltIn::Reg(reg) => BuiltIn::Float(*reg as f64),
+            BuiltIn::Int(int) => BuiltIn::Float(*int as f64),
+            _ => BuiltIn::None,
+        },
+        () if T == T_INT => match &value.built_in {
+            BuiltIn::Reg(reg) => BuiltIn::Int(*reg as i128),
+            BuiltIn::Float(f) => {
+                let trial = *f as i128;
+                (trial as f64 == *f)
+                    .then_some(BuiltIn::Int(trial))
+                    .unwrap_or_default()
+            },
+            _ => BuiltIn::None,
+        },
+        () if T == T_REG => match &value.built_in {
+            BuiltIn::Int(int) => {
+                let trial = *int as usize;
+                (trial as i128 == *int)
+                    .then_some(BuiltIn::Reg(trial))
+                    .unwrap_or_default()
+            },
+            BuiltIn::Float(f) => {
+                let trial = *f as usize;
+                (trial as f64 == *f)
+                    .then_some(BuiltIn::Reg(trial))
+                    .unwrap_or_default()
+            },
+            _ => BuiltIn::None,
+        },
+        _ => BuiltIn::None,
+    };
+
+    Ok(Value::from(built_in))
+}

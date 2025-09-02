@@ -2,6 +2,7 @@ use std::println;
 use std::range;
 use std::Str;
 use std::int;
+use std::reg;
 
 const FIVE = 5;
 
@@ -49,7 +50,7 @@ fn main() {
     println("order: {vs}");
 
     /* WHILE */
-    let i = 0;
+    let i: reg = 0;
     while i < 5 {
         println("while: {i}");
         i = i + 1;

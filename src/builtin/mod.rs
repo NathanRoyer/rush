@@ -7,8 +7,10 @@ use std::sync::Arc;
 pub use store::Stores;
 pub use util::dump;
 use util::{println, dump_entry, get, set, ordering, different, len, has, nth};
-use math::{OP_ROUND, OP_FLOOR, OP_FRACT, OP_CEIL};
-use math::{add, subtract, clamp, abs, f64_op};
+use math::{add, subtract, clamp, abs};
+
+use math::{OP_ROUND, OP_FLOOR, OP_FRACT, OP_CEIL, f64_op};
+use util::{T_F64, T_REG, T_INT, num_from};
 
 mod store;
 mod math;
@@ -124,6 +126,10 @@ pub fn init(ctx: &mut Context) {
     ctx.built_in_funcs.insert("floor", f64_op::<OP_FLOOR>);
     ctx.built_in_funcs.insert("fract", f64_op::<OP_FRACT>);
     ctx.built_in_funcs.insert("ceil", f64_op::<OP_CEIL>);
+
+    ctx.built_in_funcs.insert("reg_from", num_from::<T_REG>);
+    ctx.built_in_funcs.insert("int_from", num_from::<T_INT>);
+    ctx.built_in_funcs.insert("f64_from", num_from::<T_F64>);
 
     ctx.constants.push(Expression::Bool(false));
     ctx.constants.push(Expression::Bool(true));

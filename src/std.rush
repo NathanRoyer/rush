@@ -27,6 +27,10 @@ fn greater(self: any, other: any) -> bool;
 fn equal(self: any, other: any) -> bool;
 fn less(self: any, other: any) -> bool;
 
+fn int_from(self: any) -> any;
+fn reg_from(self: any) -> any;
+fn f64_from(self: any) -> any;
+
 fn negate(self: any) -> any {
     0 - self
 }
@@ -55,6 +59,7 @@ impl int {
     fn less;
 
     fn negate;
+    fn from = int_from;
     fn abs(self: int) -> any_int;
     fn add(self: int, other: any_num) -> any_num;
     fn clamp(self: int, min: int, max: int) -> int;
@@ -68,6 +73,7 @@ impl reg {
     fn equal;
     fn less;
 
+    fn from = reg_from;
     fn add(self: reg, other: any_num) -> any_num;
     fn clamp(self: reg, min: reg, max: reg) -> reg;
     fn subtract(self: reg, other: any_num) -> any_num;
@@ -81,6 +87,7 @@ impl f64 {
     fn less;
 
     fn negate;
+    fn from = f64_from;
     fn abs(self: f64) -> f64;
     fn add(self: f64, other: any_num) -> any_num;
     fn clamp(self: f64, min: f64, max: f64) -> f64;

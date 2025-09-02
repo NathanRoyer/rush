@@ -94,13 +94,11 @@ impl Panic {
     }
 }
 
-#[allow(dead_code)]
 struct Field {
     name: NameIndex,
-    list: TypeList,
+    spec: TypeList,
 }
 
-#[allow(dead_code)]
 enum TypeData {
     Struct(Vec<Field>),
     Alias(TypeList),
