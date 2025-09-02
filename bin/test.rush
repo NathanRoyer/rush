@@ -1,10 +1,9 @@
 use std::println;
-use std::void;
-use std::str;
+use std::range;
+use std::Str;
 use std::int;
-use NONE;
 
-const TEST = 5;
+const FIVE = 5;
 
 struct Test {
     a: int,
@@ -16,7 +15,7 @@ impl Test {
         self.a + self.b
     }
 
-    fn classify(self: Test) -> str {
+    fn classify(self: Test) -> Str {
         if self.a < self.b {
             "a is less than b"
         } else if self.a > self.b {
@@ -28,30 +27,48 @@ impl Test {
 }
 
 fn alter_and_sum(map: Test) -> int {
-    map.b = TEST - 20;
+    map.b = FIVE - 20;
     Test::sum(map)
 }
 
 fn main() {
-    let map = Test {
+    let test = Test {
         a: 5,
         b: 9,
     };
 
-    let sum = alter_and_sum(map);
-    let expected = sum == 0 - 10;
+    /* FN CALL */
+    let sum = alter_and_sum(test);
+    let expected = sum == -10;
+
+    /* FORMAT STRING */
     println("sum = {sum}; expected = {expected}");
 
-    let vs = map.classify();
+    /* METHOD CALL */
+    let vs = test.classify();
     println("order: {vs}");
 
+    /* WHILE */
     let i = 0;
-    while i < 3 {
+    while i < 5 {
         println("while: {i}");
         i = i + 1;
     }
 
-    for i in range(3) {
+    /* FOR + NUM RANGE */
+    for i in range(0, 5).avoid(2) {
         println("for: {i}");
+    }
+
+    /* FOR + MAP ENTRIES */
+    for key in test.iter() {
+        println("entry: {key}");
+    }
+
+    /* FOR + VEC ENTRIES */
+    let vec = ["one", "two", "three"];
+
+    for key in vec.iter() {
+        println("entry: {key}");
     }
 }

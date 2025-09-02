@@ -411,16 +411,30 @@ impl Parser {
     fn define_fn(&mut self, iter: &mut Tokens, current_impl: Option<TypeIndex>) -> Res<()> {
         let name = self.parse_name(iter)?;
 
-        let index = match current_impl {
+        let (index, allow_import) = match current_impl {
             Some(type_index) => {
                 let handle = &self.context.types[type_index];
-                handle.methods[&name]
+                (handle.methods[&name], true)
             },
-            None => self.index_of(name),
+            None => (self.index_of(name), false),
         };
 
-        let Some(Token::Tuple(param_tokens)) = iter.next().map(tok) else {
-            return self.error("expected name");
+        let next = iter.next().map(tok);
+
+        if let (Some(Token::Semi), true) = (next, allow_import) {
+            let item = self.resolve(name, &mut [].iter());
+
+            let Ok(Some(Item::Function(src_i))) = item else {
+                return self.error("imported function not found");
+            };
+
+            let src = &self.context.functions[src_i];
+            self.context.functions[index] = src.clone();
+            return Ok(());
+        }
+
+        let Some(Token::Tuple(param_tokens)) = next else {
+            return self.error("expected parameters");
         };
 
         let mut par_iter = param_tokens.iter();
@@ -567,13 +581,14 @@ impl Parser {
 
             let mut opt_expr = || match iter.next().map(tok) {
                 Some(Token::Semi) => Ok(None),
-                _ => match self.parse_expr(&mut body.iter())? {
-                    (expr, Some(Token::Semi)) => Ok(Some(expr)),
-                    _ => return self.error("expected ';'"),
+                _ => {
+                    iter = body[1..].iter();
+                    match self.parse_expr(&mut iter)? {
+                        (expr, Some(Token::Semi)) => Ok(Some(expr)),
+                        _ => return self.error("expected ';'"),
+                    }
                 },
             };
-
-            println!("token = {token:?}");
 
             let statement = match &**token {
                 Token::Let => self.parse_let(&mut iter)?,
@@ -598,8 +613,6 @@ impl Parser {
                     Statement::Eval(expr)
                 },
             };
-
-            println!("stmt = {statement:?}");
 
             skip(&mut body, iter);
             statements.push(statement);
@@ -744,13 +757,20 @@ impl Parser {
                         while iter.len() != 0 {
                             let name = self.parse_name(&mut iter)?;
 
-                            let Some(Token::Colon) = iter.next().map(tok) else {
-                                return self.error("expected ':'");
-                            };
+                            let field_expr = match iter.next().map(tok) {
+                                Some(Token::Comma) => {
+                                    let text = &self.context.names[name];
 
-                            let field_expr = match self.parse_expr(&mut iter)? {
-                                (field_expr, Some(Token::Comma)) => field_expr,
-                                _other => return self.error("expected ','"),
+                                    match self.find_local(text) {
+                                        Some(i) => Expression::Local(i),
+                                        _ => return self.error("not a local variable"),
+                                    }
+                                },
+                                Some(Token::Colon) => match self.parse_expr(&mut iter)? {
+                                    (field_expr, Some(Token::Comma)) => field_expr,
+                                    _other => return self.error("expected ','"),
+                                },
+                                _ => return self.error("expected ':' or ','"),
                             };
 
                             fields.push((name, field_expr));

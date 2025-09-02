@@ -41,7 +41,7 @@ pub fn dump(dst: &mut String, engine: &Engine, value: &Value) {
                 *dst += ", ";
             }
 
-            *dst += " ]";
+            *dst += "]";
         },
         BuiltIn::Map(i, _rc) => {
             // todo: show type
@@ -56,7 +56,7 @@ pub fn dump(dst: &mut String, engine: &Engine, value: &Value) {
                 *dst += ", ";
             }
 
-            *dst += " }";
+            *dst += "}";
         },
         BuiltIn::Type(i) => {
             *dst += "<";
@@ -83,6 +83,15 @@ pub fn ordering<const O: i8>(engine: &mut Engine, parameters: Vec<Value>) -> Fun
 
     let o = cmp(&engine, a, b) as i8;
     Ok(Value::from(BuiltIn::Bool(o == O)))
+}
+
+pub fn different(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
+    let [a, b] = parameters.as_slice() else {
+        return Err(Panic::new("bad parameters", []));
+    };
+
+    let result = cmp(&engine, a, b) != Ordering::Equal;
+    Ok(Value::from(BuiltIn::Bool(result)))
 }
 
 fn map_find(engine: &Engine, map: MapIndex, index: &Value) -> Result<usize, usize> {
@@ -116,6 +125,8 @@ pub fn cmp(engine: &Engine, a: &Value, b: &Value) -> Ordering {
             Pair::Float(a, b) => f64::total_cmp(&a, &b),
         };
     }
+
+    // maybe a pair of strings?
 
     if let (BuiltIn::Name(a), BuiltIn::Str(b, _rc2)) = (a, b) {
         let a = &engine.context.names[*a];
@@ -323,7 +334,9 @@ pub fn nth<const KEY: bool>(engine: &mut Engine, parameters: Vec<Value>) -> Func
     };
 
     let map = engine.stores.get_map(*i).unwrap();
-    let entry = &map.inner[j];
+    let Some(entry) = &map.inner.get(j) else {
+        return Ok(Value::default());
+    };
 
     match KEY {
         true => Ok(entry.key.clone()),

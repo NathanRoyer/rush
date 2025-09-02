@@ -21,7 +21,7 @@ type TypeIndex = usize;
 type FuncIndex = usize;
 type NameIndex = usize;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Value {
     built_in: BuiltIn,
     type_index: TypeIndex,
@@ -71,12 +71,14 @@ struct Type {
     methods: LiteMap<NameIndex, FuncIndex>,
 }
 
+#[derive(Clone)]
 enum FuncData {
     BuiltIn(BuiltInFunc),
     Rush(engine::Block),
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 struct Function {
     canonical_path: ItemPath,
     parameters: Vec<(NameIndex, TypeList)>,

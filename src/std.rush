@@ -1,4 +1,6 @@
 use NONE;
+use true;
+use false;
 
 /* core types (keep in sync with `BuiltInType`) */
 
@@ -9,9 +11,9 @@ struct int {}
 struct reg {}
 struct f64 {}
 
-struct str {}
-struct vec {}
-struct map {}
+struct Str {}
+struct Vec {}
+struct Map {}
 
 struct type_ref {}
 struct func_ref {}
@@ -19,26 +21,40 @@ struct name {}
 
 /* core type methods */
 
+fn dump(self: any);
+fn different(self: any, other: any) -> bool;
+fn greater(self: any, other: any) -> bool;
+fn equal(self: any, other: any) -> bool;
+fn less(self: any, other: any) -> bool;
+
+fn negate(self: any) -> any {
+    0 - self
+}
+
 impl void {
-    fn dump(self: void);
-    fn greater(self: void, other: any) -> bool;
-    fn equal(self: void, other: any) -> bool;
-    fn less(self: void, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 }
 
 impl bool {
-    fn dump(self: bool);
-    fn greater(self: bool, other: any) -> bool;
-    fn equal(self: bool, other: any) -> bool;
-    fn less(self: bool, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 }
 
 impl int {
-    fn dump(self: int);
-    fn greater(self: int, other: any) -> bool;
-    fn equal(self: int, other: any) -> bool;
-    fn less(self: int, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 
+    fn negate;
     fn abs(self: int) -> any_int;
     fn add(self: int, other: any_num) -> any_num;
     fn clamp(self: int, min: int, max: int) -> int;
@@ -46,10 +62,11 @@ impl int {
 }
 
 impl reg {
-    fn dump(self: reg);
-    fn greater(self: reg, other: any) -> bool;
-    fn equal(self: reg, other: any) -> bool;
-    fn less(self: reg, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 
     fn add(self: reg, other: any_num) -> any_num;
     fn clamp(self: reg, min: reg, max: reg) -> reg;
@@ -57,11 +74,13 @@ impl reg {
 }
 
 impl f64 {
-    fn dump(self: f64);
-    fn greater(self: f64, other: any) -> bool;
-    fn equal(self: f64, other: any) -> bool;
-    fn less(self: f64, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 
+    fn negate;
     fn abs(self: f64) -> f64;
     fn add(self: f64, other: any_num) -> any_num;
     fn clamp(self: f64, min: f64, max: f64) -> f64;
@@ -73,70 +92,86 @@ impl f64 {
     fn fract(self: f64) -> f64;
 }
 
-impl str {
-    fn dump(self: str);
-    /* fn bytes(self: str) -> bytes; */
-    /* fn chars(self: str) -> vec; */
-    fn add(self: str, other: str) -> str;
-    fn greater(self: str, other: any) -> bool;
-    fn equal(self: str, other: any) -> bool;
-    fn less(self: str, other: any) -> bool;
+impl Str {
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
+
+    /* fn bytes(self: Str) -> bytes; */
+    /* fn chars(self: Str) -> Vec; */
+    fn add(self: Str, other: Str) -> Str;
 }
 
-impl vec {
-    fn dump(self: vec);
-    fn add(self: vec, other: vec) -> vec;
-    fn greater(self: vec, other: any) -> bool;
-    fn equal(self: vec, other: any) -> bool;
-    fn less(self: vec, other: any) -> bool;
+impl Vec {
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 
-    fn len(self: vec) -> reg;
-    fn get(self: vec, index: any_int) -> any;
-    fn has(self: vec, index: any_int) -> bool;
-    fn set(self: vec, index: any_int, value: any) -> any;
+    fn add(self: Vec, other: Vec) -> Vec;
+    fn len(self: Vec) -> reg;
+    fn get(self: Vec, index: any_int) -> any;
+    fn has(self: Vec, index: any_int) -> bool;
+    fn set(self: Vec, index: any_int, value: any) -> any;
+
+    fn iter(self: Vec) -> VecIter {
+        VecIter {
+            vec: self,
+            index: 0,
+        }
+    }
 }
 
-impl map {
-    fn dump(self: map);
-    fn greater(self: map, other: any) -> bool;
-    fn equal(self: map, other: any) -> bool;
-    fn less(self: map, other: any) -> bool;
+impl Map {
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 
-    fn len(self: vec) -> reg;
-    fn get(self: map, key: any) -> any;
-    fn has(self: map, key: any) -> bool;
-    fn nth_key(self: map, index: any_int) -> any;
-    fn nth_value(self: map, index: any_int) -> any;
-    fn set(self: map, key: any, value: any) -> any;
+    fn len(self: Vec) -> reg;
+    fn get(self: Map, key: any) -> any;
+    fn has(self: Map, key: any) -> bool;
+    fn nth_key(self: Map, index: any_int) -> any;
+    fn nth_value(self: Map, index: any_int) -> any;
+    fn set(self: Map, key: any, value: any) -> any;
+
+    fn iter(self: Map) -> EntryIter {
+        EntryIter {
+            map: self,
+            index: 0,
+        }
+    }
 }
 
 impl type_ref {
-    fn dump(self: type_ref);
-    fn greater(self: type_ref, other: any) -> bool;
-    fn equal(self: type_ref, other: any) -> bool;
-    fn less(self: type_ref, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 }
 
 impl func_ref {
-    fn dump(self: func_ref);
-    fn greater(self: func_ref, other: any) -> bool;
-    fn equal(self: func_ref, other: any) -> bool;
-    fn less(self: func_ref, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 }
 
 impl name {
-    fn dump(self: name);
-    fn greater(self: name, other: any) -> bool;
-    fn equal(self: name, other: any) -> bool;
-    fn less(self: name, other: any) -> bool;
+    fn dump;
+    fn different;
+    fn greater;
+    fn equal;
+    fn less;
 }
 
 /* iterators */
-
-struct NumIter {
-    i: int,
-    limit: int,
-}
 
 fn range(start: int, limit: int) -> NumIter {
     NumIter {
@@ -145,7 +180,96 @@ fn range(start: int, limit: int) -> NumIter {
     }
 }
 
+fn avoid(iter: any, avoided: any) -> AvoidIter {
+    if avoided == NONE {
+        println("avoided cannot be void");
+        return;
+    };
+
+    AvoidIter {
+        base: iter,
+        avoided,
+    }
+}
+
+fn map(iter: any, mapper: func_ref) -> MapperIter {
+    MapperIter {
+        base: iter,
+        mapper,
+    }
+}
+
+fn take(iter: any, num: any_int) -> TakeIter {
+    TakeIter {
+        base: iter,
+        remaining: num,
+    }
+}
+
+fn until(iter: any, end: any) -> UntilIter {
+    UntilIter {
+        base: iter,
+        end,
+        reached: false,
+    }
+}
+
+fn chain(a: any, b: any) -> ChainedIter {
+    ChainedIter {
+        a,
+        b,
+        switched: false,
+    }
+}
+
+fn contains(iter: any, value: any) -> bool {
+    locate(iter, value) != NONE
+}
+
+fn locate(iter: any, value: any) -> reg | void {
+    let i = 0;
+
+    for item in iter {
+        if item == value {
+            return i;
+        };
+
+        i = i + 1;
+    }
+}
+
+fn find(iter: any, func: func_ref) -> any {
+    for item in iter {
+        if func(item) {
+            return item;
+        };
+    }
+}
+
+fn skip(iter: any, num: any_int) -> any {
+    while num > 0 {
+        iter.next();
+    }
+
+    iter
+}
+
+struct NumIter {
+    i: int,
+    limit: int,
+}
+
 impl NumIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
     fn next(self: NumIter) -> int | void {
         let then = self.i;
 
@@ -158,12 +282,86 @@ impl NumIter {
     }
 }
 
+struct Entry {
+    key: any,
+    value: any,
+}
+
+struct EntryIter {
+    map: Map,
+    index: reg,
+}
+
+impl EntryIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
+    fn next(self: EntryIter) -> any {
+        let next = self.index + 1;
+        let key = self.map.nth_key(self.index);
+
+        if key == NONE {
+            return NONE;
+        };
+
+        let value = self.map.nth_value(self.index);
+        self.index = next;
+
+        Entry { key, value, }
+    }
+}
+
+struct VecIter {
+    vec: Vec,
+    index: reg,
+}
+
+impl VecIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
+    fn next(self: VecIter) -> any {
+        let next = self.index + 1;
+        let value = self.vec.get(self.index);
+
+        if value != NONE {
+            self.index = next;
+        };
+
+        value
+    }
+}
+
 struct AvoidIter {
     base: any,
     avoided: any,
 }
 
 impl AvoidIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
     fn next(self: AvoidIter) -> any {
         let next = self.base.next();
 
@@ -175,19 +373,28 @@ impl AvoidIter {
     }
 }
 
-struct MapIter {
+struct MapperIter {
     base: any,
-    mapper: func_ref,
+    mapper: any,
 }
 
-impl MapIter {
-    fn next(self: MapIter) -> any {
+impl MapperIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
+    fn next(self: MapperIter) -> any {
         let next = self.base.next();
 
-        while next != NONE {
-            let func = self.mapper;
-            next = func(next);
-        }
+        if next != NONE {
+            next = self.mapper.map(next);
+        };
 
         next
     }
@@ -199,12 +406,22 @@ struct TakeIter {
 }
 
 impl TakeIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
     fn next(self: TakeIter) -> any {
         if self.remaining == 0 {
-            return;
+            return NONE;
         };
 
-        self.remaining -= 1;
+        self.remaining = self.remaining - 1;
         self.base.next()
     }
 }
@@ -216,6 +433,16 @@ struct UntilIter {
 }
 
 impl UntilIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
     fn next(self: UntilIter) -> any {
         if self.reached {
             return;
@@ -239,6 +466,16 @@ struct ChainedIter {
 }
 
 impl ChainedIter {
+    fn avoid;
+    fn map;
+    fn take;
+    fn until;
+    fn chain;
+    fn contains;
+    fn locate;
+    fn find;
+    fn skip;
+
     fn next(self: ChainedIter) -> any {
         if self.switched {
             return self.b.next();
@@ -253,80 +490,6 @@ impl ChainedIter {
 
         item
     }
-}
-
-fn _avoid(iter: any, avoided: any) -> AvoidIter {
-    if avoided == NONE {
-        println("avoided cannot be void");
-        return;
-    }
-
-    AvoidIter {
-        iter,
-        avoided,
-    }
-}
-
-fn _map(iter: any, mapper: func_ref) -> MapIter {
-    MapIter {
-        iter,
-        mapper,
-    }
-}
-
-fn _take(iter: any, num: any_int) -> TakeIter {
-    TakeIter {
-        iter,
-        remaining: num,
-    }
-}
-
-fn _until(iter: any, end: any) -> UntilIter {
-    UntilIter {
-        iter,
-        end,
-        reached: false,
-    }
-}
-
-fn _chain(a: any, b: any) -> ChainedIter {
-    ChainedIter {
-        a,
-        b,
-        switched: false,
-    }
-}
-
-fn _contains(iter: any, value: any) -> bool {
-    locate(iter, value) != NONE
-}
-
-fn _locate(iter: any, value: any) -> reg | void {
-    let i = 0;
-
-    for item in iter {
-        if item == value {
-            return i;
-        };
-
-        i += 1;
-    };
-}
-
-fn _find(iter: any, func: func_ref) -> any {
-    for item in iter {
-        if func(item) {
-            return item;
-        };
-    };
-}
-
-fn _skip(iter: any, num: any_int) -> any {
-    while num > 0 {
-        iter.next();
-    };
-
-    iter
 }
 
 /* misc types */
@@ -352,8 +515,8 @@ impl byte_r {
     fn available(self: byte_r) -> opt_len;
 
     fn read_bytes(self: byte_r, len: opt_len) -> bytes;
-    fn read_until(self: byte_r, token: str) -> str;
-    fn read_str(self: byte_r, len: opt_len) -> str;
+    fn read_until(self: byte_r, token: Str) -> Str;
+    fn read_str(self: byte_r, len: opt_len) -> Str;
 
     fn read_u8(self: byte_r) -> reg;
     fn read_u16(self: byte_r) -> reg;
@@ -367,8 +530,8 @@ impl byte_r {
 }
 
 impl byte_w {
-    fn write_bytes(self: byte_w, data: vec | bytes);
-    fn write_str(self: byte_w, data: str);
+    fn write_bytes(self: byte_w, data: Vec | bytes);
+    fn write_str(self: byte_w, data: Str);
 
     fn write_u8(self: byte_w, data: reg);
     fn write_u16(self: byte_w, data: reg);
@@ -381,11 +544,11 @@ impl byte_w {
     fn write_i64(self: byte_w, data: int);
 }
 
-fn open_r(path: str) -> byte_r;
-fn open_w(path: str) -> byte_w;
+fn open_r(path: Str) -> byte_r;
+fn open_w(path: Str) -> byte_w;
 
-fn resolve(name: str) -> str;
-fn connect_tcp(ip: str, port: any_int) -> socket;
-fn connect_tls(ip: str, port: any_int) -> socket;
+fn resolve(name: Str) -> Str;
+fn connect_tcp(ip: Str, port: any_int) -> socket;
+fn connect_tls(ip: Str, port: any_int) -> socket;
 
 */

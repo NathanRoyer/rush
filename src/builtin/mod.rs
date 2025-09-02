@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 pub use store::Stores;
 pub use util::dump;
-use util::{println, dump_entry, get, set, ordering, len, has, nth};
+use util::{println, dump_entry, get, set, ordering, different, len, has, nth};
 use math::{OP_ROUND, OP_FLOOR, OP_FRACT, OP_CEIL};
 use math::{add, subtract, clamp, abs, f64_op};
 
@@ -105,6 +105,7 @@ pub fn init(ctx: &mut Context) {
     ctx.built_in_funcs.insert("greater", ordering::<1>);
     ctx.built_in_funcs.insert("equal", ordering::<0>);
     ctx.built_in_funcs.insert("less", ordering::<-1>);
+    ctx.built_in_funcs.insert("different", different);
     ctx.built_in_funcs.insert("subtract", subtract);
     ctx.built_in_funcs.insert("println", println);
     ctx.built_in_funcs.insert("dump", dump_entry);

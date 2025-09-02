@@ -12,7 +12,7 @@ pub type MatchArm = (TypeList, Expression);
 pub type Block = Vec<Statement>;
 pub type LocalIndex = usize;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expression {
     Assignment(Option<Box<Expression>>, Box<Expression>),
     Method(Box<Expression>, NameIndex, Vec<Expression>),
@@ -36,7 +36,7 @@ pub enum Expression {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Statement {
     For(Expression, Block),
     LocalPush(TypeList, Option<Expression>),
@@ -324,7 +324,7 @@ impl Engine {
                 }
 
                 let index = Some(*type_index);
-                self.stores.new_map(index, entries, true)
+                self.stores.new_map(index, entries, false)
             },
             Expression::ConstStr(data) => {
                 let mut string = String::new();
