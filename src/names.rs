@@ -8,14 +8,15 @@ pub struct Names {
     pub different: NameIndex,
     pub multiply: NameIndex,
     pub subtract: NameIndex,
-    pub dump: NameIndex,
     pub greater: NameIndex,
     pub divide: NameIndex,
     pub negate: NameIndex,
     pub equal: NameIndex,
+    pub dump: NameIndex,
     pub less: NameIndex,
     pub main: NameIndex,
     pub next: NameIndex,
+    pub from: NameIndex,
     pub add: NameIndex,
     pub get: NameIndex,
     pub set: NameIndex,
@@ -36,14 +37,15 @@ impl Default for Names {
         let different = push("different");
         let multiply = push("multiply");
         let subtract = push("subtract");
-        let dump = push("dump");
         let greater = push("greater");
         let divide = push("divide");
         let negate = push("negate");
         let equal = push("equal");
+        let dump = push("dump");
         let less = push("less");
-        let next = push("next");
         let main = push("main");
+        let next = push("next");
+        let from = push("from");
         let add = push("add");
         let get = push("get");
         let set = push("set");
@@ -55,14 +57,15 @@ impl Default for Names {
             different,
             multiply,
             subtract,
-            dump,
             greater,
             divide,
             negate,
             equal,
+            dump,
             less,
             main,
             next,
+            from,
             add,
             get,
             set,
@@ -79,14 +82,15 @@ impl Names {
             different: NameIndex::MAX,
             multiply: NameIndex::MAX,
             subtract: NameIndex::MAX,
-            dump: NameIndex::MAX,
             greater: NameIndex::MAX,
             divide: NameIndex::MAX,
             negate: NameIndex::MAX,
             equal: NameIndex::MAX,
+            dump: NameIndex::MAX,
             less: NameIndex::MAX,
             main: NameIndex::MAX,
             next: NameIndex::MAX,
+            from: NameIndex::MAX,
             add: NameIndex::MAX,
             get: NameIndex::MAX,
             set: NameIndex::MAX,

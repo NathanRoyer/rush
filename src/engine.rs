@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use super::{
     TypeIndex, FuncIndex, NameIndex, ConstIndex, TypeList, Context,
-    FuncData, Value, FuncRes, Panic,
+    FuncData, Value, FuncRes, Panic, TypeData,
 };
 
 pub type Fields = Vec<(NameIndex, Expression)>;
@@ -97,15 +97,19 @@ impl Engine {
             dbg_path = Some(path);
         }
 
-        let mut ret = match &func.data {
+        let ret = match &func.data {
             FuncData::Redirect(_) => unreachable!(/* handled earlier */),
             FuncData::Rush(body) => {
                 let backup = self.locals.drain(..).collect();
                 let mut param_iter = parameters.into_iter();
 
-                for (_name, _types) in &func.parameters {
-                    let next = param_iter.next();
-                    self.locals.push(next.unwrap_or_default());
+                let msg = "value did not pass return type check";
+
+                for (_name, spec) in &func.parameters {
+                    let value = param_iter.next();
+                    let value = value.unwrap_or_default();
+                    let value = self.type_check(value, &spec, msg)?;
+                    self.locals.push(value);
                 }
 
                 let _extra: Vec<_> = param_iter.collect();
@@ -124,6 +128,13 @@ impl Engine {
                 ret
             },
             FuncData::BuiltIn(cb) => cb(self, parameters),
+        };
+
+        let msg = "value did not pass return type check";
+
+        let mut ret = match ret {
+            Ok(value) => self.type_check(value, &func.return_type, msg),
+            Err(x) => Err(x),
         };
 
         if let Err(panic) = &mut ret {
@@ -422,6 +433,58 @@ impl Engine {
         let name_val = Value::from(BuiltIn::Name(name));
 
         Err(Panic::new("method not found", [type_val, name_val]))
+    }
+
+    fn type_check(&mut self, value: Value, spec: &[TypeIndex], panic_msg: &'static str) -> FuncRes {
+        if spec.is_empty() {
+            return Ok(value);
+        }
+
+        if spec.contains(&value.type_index) {
+            return Ok(value);
+        }
+
+        if spec.contains(&value.built_in.type_index()) {
+            return Ok(Value::from(value.built_in));
+        }
+
+        let mut failed = Vec::new();
+        let ctx = self.context.clone();
+
+        for index in spec {
+            let type_val = Value::from(BuiltIn::Type(*index));
+            let from = &self.context.names.from;
+            let handle = &ctx.types[*index];
+            failed.push(type_val.clone());
+
+            if let TypeData::Alias(list) = &handle.data {
+                match self.type_check(value.clone(), list, panic_msg) {
+                    Err(panic) if panic.message == panic_msg => continue,
+                    other => return other,
+                };
+            }
+
+            let Some(func_i) = handle.methods.get(from) else {
+                continue;
+            };
+
+            let ret = self.call(*func_i, vec![value.clone()])?;
+
+            if ret.type_index == super::VOID_TYPE {
+                continue;
+            }
+
+            if ret.type_index != *index {
+                let values = [type_val, value.clone(), ret];
+                let message = "unexpected 'from' method return value";
+                return Err(Panic::new(message, values));
+            }
+
+            return Ok(ret);
+        }
+
+        let failed = self.stores.new_vec(failed);
+        Err(Panic::new(panic_msg, [value, failed]))
     }
 }
 

@@ -119,7 +119,6 @@ enum FuncData {
     Redirect(FuncIndex),
 }
 
-#[allow(dead_code)]
 #[derive(Clone)]
 struct Function {
     canonical_path: ItemPath,

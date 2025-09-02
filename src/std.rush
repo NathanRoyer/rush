@@ -21,7 +21,7 @@ struct name {}
 
 /* core type methods */
 
-fn dump(self: any);
+fn dump(self: any) -> Str;
 fn different(self: any, other: any) -> bool;
 fn greater(self: any, other: any) -> bool;
 fn equal(self: any, other: any) -> bool;
