@@ -62,13 +62,13 @@ fn main() {
 
     /* FOR + MAP ENTRIES */
     for key in test.iter() {
-        println("entry: {key}");
+        println("in map: {key}");
     }
 
     /* FOR + VEC ENTRIES */
     let vec = ["one", "two", "three"];
 
     for key in vec.iter() {
-        println("entry: {key}");
+        println("in vec: {key}");
     }
 }

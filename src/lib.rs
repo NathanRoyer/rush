@@ -1,4 +1,5 @@
 use litemap::LiteMap;
+use std::fmt::Write;
 use std::sync::Arc;
 
 mod tokenizer;
@@ -7,6 +8,7 @@ mod engine;
 mod parser;
 mod names;
 
+use parser::Error as ParsingError;
 use engine::{Engine, Expression};
 use builtin::BuiltIn;
 use names::Names;
@@ -50,6 +52,45 @@ impl Panic {
 
     fn add_to_call_stack(&mut self, step: String) {
         self.call_stack.push(step);
+    }
+
+    pub fn dump(&self, engine: &Engine) -> String {
+        let mut out = String::new();
+
+        let _ = writeln!(out, "panic: {}", self.message);
+
+        let _ = writeln!(out, "\ncall stack:");
+        for step in &self.call_stack {
+            let _ = writeln!(out, "- {step}");
+        }
+
+        if !self.data.is_empty() {
+            let _ = writeln!(out, "\ndebugging values:");
+        }
+
+        let ctx = &engine.context;
+
+        for value in &self.data {
+            let fg_type = &ctx.types[value.type_index];
+            let path = ctx.stringify_path(&fg_type.canonical_path);
+            let mut repr = String::new();
+            builtin::dump(&mut repr, &engine, &value);
+            let mut truncated = false;
+
+            while repr.len() > 80 {
+                truncated = true;
+                repr.pop();
+            }
+
+            if truncated {
+                repr.push('…');
+            }
+
+            let _ = writeln!(out, "- [{path}] {repr}");
+        }
+
+        let _ = writeln!(out, "");
+        out
     }
 }
 
@@ -124,77 +165,12 @@ impl Context {
         let mut this = Self::empty();
         this.names = Names::default();
         builtin::init(&mut this);
-        this.parse("std", std_code);
+        this.define("std", std_code).unwrap();
         this
     }
 
     pub fn add_builtin(&mut self, name: &'static str, ptr: BuiltInFunc) {
         self.built_in_funcs.insert(name, ptr);
-    }
-
-    pub fn parse(&mut self, mod_name: &str, mut module: &str) {
-        let Ok(tokens) = tokenizer::tokenize(&mut module) else {
-            let line = match module.split_once('\n') {
-                Some((line, _)) => line,
-                None => module,
-            };
-
-            println!("failed to tokenize: {line}");
-            return;
-        };
-
-        if let Err(error) = parser::parse(self, mod_name, &tokens) {
-            println!("syntax error: {}", error.message);
-            println!("line: {}", error.line);
-        }
-    }
-
-    pub fn run(self) {
-        let this = std::sync::Arc::new(self);
-        let backup = this.clone();
-        let funcs = &backup.functions;
-        let mut engine = Engine::new(this);
-        let main_name = backup.names.main;
-
-        for (i, func) in funcs.iter().enumerate() {
-            if func.canonical_path.last() == Some(&main_name) {
-                if let Err(panic) = engine.call(i, vec![]) {
-                    println!("--------------------------------");
-                    println!("panic: {}", panic.message);
-
-                    println!("\ncall stack:");
-                    for step in panic.call_stack {
-                        println!("- {step}");
-                    }
-
-                    if !panic.data.is_empty() {
-                        println!("\ndebugging values:");
-                    }
-
-                    for value in panic.data {
-                        let fg_type = &backup.types[value.type_index];
-                        let path = backup.stringify_path(&fg_type.canonical_path);
-                        let mut repr = String::new();
-                        builtin::dump(&mut repr, &engine, &value);
-                        let mut truncated = false;
-
-                        while repr.len() > 80 {
-                            truncated = true;
-                            repr.pop();
-                        }
-
-                        if truncated {
-                            repr.push('…');
-                        }
-
-                        println!("- [{path}] {repr}");
-                    }
-
-                    println!("");
-                    break;
-                }
-            }
-        }
     }
 
     fn stringify_path(&self, path: &[NameIndex]) -> String {
@@ -208,5 +184,49 @@ impl Context {
         out.pop();
         out.pop();
         out
+    }
+
+    pub fn define(&mut self, mod_name: &str, module: &str) -> Result<(), ParsingError> {
+        let mut slice = module;
+        let Ok(tokens) = tokenizer::tokenize(&mut slice) else {
+            let tokenized_len = module.len() - slice.len();
+            let tokenized = &module[..tokenized_len];
+            let line = tokenized.lines().count();
+
+            return Err(ParsingError {
+                message: "failed to tokenize",
+                line,
+            });
+        };
+
+        parser::define(self, mod_name, &tokens)
+    }
+
+    pub fn run(self) -> Result<(), String> {
+        let this = std::sync::Arc::new(self);
+        let backup = this.clone();
+        let funcs = &backup.functions;
+        let mut engine = Engine::new(this);
+        let main_name = backup.names.main;
+
+        let mut main_i = None;
+
+        for (i, func) in funcs.iter().enumerate() {
+            if func.canonical_path.last() == Some(&main_name) {
+                let None = main_i.replace(i) else {
+                    return Err("multiple 'main' function definitions".to_string());
+                };
+            }
+        }
+
+        let Some(i) = main_i else {
+            return Err("no 'main' function definition".to_string());
+        };
+
+        if let Err(panic) = engine.call(i, vec![]) {
+            return Err(panic.dump(&engine));
+        }
+
+        Ok(())
     }
 }

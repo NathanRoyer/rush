@@ -189,7 +189,8 @@ pub fn cmp(engine: &Engine, a: &Value, b: &Value) -> Ordering {
     }
 
     let (BuiltIn::Map(a, _rc1), BuiltIn::Map(b, _rc2)) = (a, b) else {
-        panic!("unsupported builtin type: {:?} & {:?}", a, b);
+        println!("[rush] internal cmp error: {:?} & {:?}", a, b);
+        return Ordering::Equal;
     };
 
     let a = &stores.get_map(*a).unwrap().inner;

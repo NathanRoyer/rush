@@ -40,6 +40,7 @@ fn tok<'a, 'b>(data: &'b TokenData<'a>) -> &'b Token<'a> {
     &**data
 }
 
+#[derive(Debug)]
 pub struct Error {
     pub line: usize,
     pub message: &'static str,
@@ -47,7 +48,7 @@ pub struct Error {
 
 type Res<T> = Result<T, Error>;
 
-pub fn parse(
+pub fn define(
     ctx: &mut Context,
     mod_name: &str,
     tokens: &[TokenData],
