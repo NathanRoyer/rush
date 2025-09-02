@@ -1,3 +1,4 @@
+use std::mem::replace;
 use super::*;
 
 pub fn println(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
@@ -213,6 +214,10 @@ pub fn cmp(engine: &Engine, a: &Value, b: &Value) -> Ordering {
     }
 }
 
+fn first_class_map(this: &Value) -> bool {
+    this.type_index == (BuiltInType::Map as TypeIndex)
+}
+
 pub fn get(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
     let [this, index] = parameters.as_slice() else {
         return Err(Panic::new("bad parameters", []));
@@ -237,7 +242,8 @@ pub fn get(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
 
     match index_i {
         Ok(i) => Ok(map.inner[i].value.clone()),
-        _other => Ok(Value::default()),
+        Err(_) if first_class_map(&this) => Ok(Value::default()),
+        Err(_) => Err(Panic::new("no such field", [])),
     }
 }
 
@@ -257,8 +263,7 @@ pub fn set(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
             return Err(Panic::new("no slot at index", []));
         };
 
-        *slot = new_value;
-        return Ok(Value::default());
+        return Ok(replace(slot, new_value));
     }
 
     let BuiltIn::Map(i, _rc) = &this.built_in else {
@@ -269,18 +274,18 @@ pub fn set(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {
     let map = engine.stores.get_map_mut(*i).unwrap();
 
     match index_i {
-        Ok(i) => map.inner[i].value = new_value,
-        Err(i) => {
+        Ok(i) => Ok(replace(&mut map.inner[i].value, new_value)),
+        Err(i) if first_class_map(&this) => {
             let entry = Entry {
                 key: index,
                 value: new_value,
             };
 
             map.inner.insert(i, entry);
-        }
+            Ok(Value::default())
+        },
+        Err(_) => Err(Panic::new("no such field", [])),
     }
-
-    Ok(Value::default())
 }
 
 pub fn len(engine: &mut Engine, parameters: Vec<Value>) -> FuncRes {

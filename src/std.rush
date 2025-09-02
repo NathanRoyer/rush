@@ -32,7 +32,6 @@ fn reg_from(self: any) -> any;
 fn f64_from(self: any) -> any;
 
 fn negate(self: any) -> any {
-    println(5);
     0 - self
 }
 

@@ -445,7 +445,7 @@ impl Engine {
 
         let this = self.eval(subject)?;
         let parameters = vec![index, new_value];
-        let _ret = self.method(this, self.context.names.set, parameters);
+        let _ret = self.method(this, self.context.names.set, parameters)?;
 
         Ok(())
     }
