@@ -39,7 +39,7 @@ pub enum Expression {
 }
 
 #[derive(Clone, Debug)]
-pub enum Statement {
+pub enum StatementData {
     For(Expression, Block),
     LocalPush(TypeList, Option<Expression>),
     While(Expression, Block),
@@ -49,10 +49,17 @@ pub enum Statement {
     Continue,
 }
 
+#[derive(Clone, Debug)]
+pub struct Statement {
+    pub data: StatementData,
+    pub line: usize,
+}
+
 pub struct Engine {
     pub context: Arc<Context>,
     pub stores: Stores,
     locals: Vec<Value>,
+    line: usize,
 }
 
 pub enum BlockExit {
@@ -80,12 +87,14 @@ impl Engine {
             context,
             locals: vec![],
             stores: Stores::default(),
+            line: 0,
         }
     }
 
     pub fn call(&mut self, i: FuncIndex, parameters: Vec<Value>) -> FuncRes {
         let ctx = self.context.clone();
         let mut func = &ctx.functions[i];
+        let line_bck = self.line;
         let mut dbg_path = None;
 
         while let FuncData::Redirect(i) = &func.data {
@@ -142,8 +151,10 @@ impl Engine {
         if let Err(panic) = &mut ret {
             let path = &func.canonical_path;
             let path = self.context.stringify_path(path);
-            panic.add_to_call_stack(path);
+            panic.add_to_call_stack(path, self.line);
         }
+
+        self.line = line_bck;
 
         if let Some(name) = dbg_path {
             let ret = ret.as_ref().ok().unwrap();
@@ -164,8 +175,10 @@ impl Engine {
                 break Ok(Value::from(BuiltIn::None));
             };
 
-            match statement {
-                Statement::LocalPush(spec, maybe_expr) => {
+            self.line = statement.line;
+
+            match &statement.data {
+                StatementData::LocalPush(spec, maybe_expr) => {
                     let value = match maybe_expr {
                         Some(expr) => self.eval(expr)?,
                         None => Value::default(),
@@ -175,7 +188,7 @@ impl Engine {
                     let value = self.type_check(value, &spec, msg)?;
                     self.locals.push(value);
                 },
-                Statement::For(iter, body) => {
+                StatementData::For(iter, body) => {
                     let iter_val = self.eval(iter)?;
 
                     loop {
@@ -199,7 +212,7 @@ impl Engine {
                         }
                     }
                 },
-                Statement::While(cond_expr, body) => loop {
+                StatementData::While(cond_expr, body) => loop {
                     let condition = self.eval(cond_expr)?;
                     if let BuiltIn::Bool(false) = condition.built_in {
                         break;
@@ -212,11 +225,11 @@ impl Engine {
                         Err(ret) => break 'outer Err(ret),
                     }
                 },
-                Statement::Eval(expr) => match self.eval(expr)? {
+                StatementData::Eval(expr) => match self.eval(expr)? {
                     value if value.type_index == super::VOID_TYPE => (),
                     other => break Ok(other),
                 },
-                Statement::Return(maybe_expr) => {
+                StatementData::Return(maybe_expr) => {
                     let value = match maybe_expr {
                         Some(expr) => self.eval(expr)?,
                         None => Value::default(),
@@ -224,7 +237,7 @@ impl Engine {
 
                     return Err(BlockExit::Return(value));
                 },
-                Statement::Break(maybe_expr) => {
+                StatementData::Break(maybe_expr) => {
                     let value = match maybe_expr {
                         Some(expr) => self.eval(expr)?,
                         None => Value::default(),
@@ -232,7 +245,7 @@ impl Engine {
 
                     return Err(BlockExit::Break(value));
                 },
-                Statement::Continue => return Err(BlockExit::Continue),
+                StatementData::Continue => return Err(BlockExit::Continue),
             }
         };
 

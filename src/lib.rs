@@ -36,8 +36,8 @@ impl Default for Value {
 }
 
 pub struct Panic {
+    call_stack: Vec<(String, usize)>,
     message: &'static str,
-    call_stack: Vec<String>,
     data: Vec<Value>,
 }
 
@@ -50,8 +50,8 @@ impl Panic {
         }
     }
 
-    fn add_to_call_stack(&mut self, step: String) {
-        self.call_stack.push(step);
+    fn add_to_call_stack(&mut self, step: String, line: usize) {
+        self.call_stack.push((step, line));
     }
 
     pub fn dump(&self, engine: &Engine) -> String {
@@ -59,9 +59,11 @@ impl Panic {
 
         let _ = writeln!(out, "panic: {}", self.message);
 
-        let _ = writeln!(out, "\ncall stack:");
-        for step in &self.call_stack {
-            let _ = writeln!(out, "- {step}");
+        let _ = writeln!(out, "\nbacktrace:");
+        let mut i = self.call_stack.len();
+        for (step, line) in &self.call_stack {
+            let _ = writeln!(out, "{i}. {step} (line {line})");
+            i -= 1;
         }
 
         if !self.data.is_empty() {
@@ -70,6 +72,7 @@ impl Panic {
 
         let ctx = &engine.context;
 
+        i = self.data.len();
         for value in &self.data {
             let fg_type = &ctx.types[value.type_index];
             let path = ctx.stringify_path(&fg_type.canonical_path);
@@ -86,10 +89,10 @@ impl Panic {
                 repr.push('…');
             }
 
-            let _ = writeln!(out, "- [{path}] {repr}");
+            let _ = writeln!(out, "{i}. [{path}] {repr}");
+            i -= 1;
         }
 
-        let _ = writeln!(out, "");
         out
     }
 }

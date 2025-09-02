@@ -1,5 +1,8 @@
 use super::tokenizer::{Token, TokenData, CodeStr, DynPart};
-use super::engine::{LocalIndex, Statement, Expression, MatchArm};
+
+use super::engine::{
+    LocalIndex, Statement, StatementData, Expression, MatchArm
+};
 
 use super::{
     Function, TypeData, Field, NameIndex, ItemPath, Names,
@@ -601,14 +604,14 @@ impl Parser {
                 },
             };
 
-            let statement = match &**token {
+            let data = match &**token {
                 Token::Let => self.parse_let(&mut iter)?,
                 Token::For => self.parse_for(&mut iter)?,
                 Token::While => self.parse_while(&mut iter)?,
-                Token::Break => Statement::Break(opt_expr()?),
-                Token::Return => Statement::Return(opt_expr()?),
+                Token::Break => StatementData::Break(opt_expr()?),
+                Token::Return => StatementData::Return(opt_expr()?),
                 Token::Continue => match iter.next().map(tok) {
-                    Some(Token::Semi) => Statement::Continue,
+                    Some(Token::Semi) => StatementData::Continue,
                     _other => return self.error("expected ';'"),
                 },
                 _other => {
@@ -621,8 +624,13 @@ impl Parser {
                         (_, Some(_other)) => return self.error("expected ';'"),
                     };
 
-                    Statement::Eval(expr)
+                    StatementData::Eval(expr)
                 },
+            };
+
+            let statement = Statement {
+                data,
+                line: token.line,
             };
 
             skip(&mut body, iter);
@@ -633,7 +641,7 @@ impl Parser {
         Ok(statements)
     }
 
-    fn parse_let(&mut self, iter: &mut Tokens) -> Res<Statement> {
+    fn parse_let(&mut self, iter: &mut Tokens) -> Res<StatementData> {
         let Some(Token::Alphanumeric(name)) = iter.next().map(tok) else {
             return self.error("expected name");
         };
@@ -656,10 +664,10 @@ impl Parser {
         };
 
         self.locals.push(name.to_string());
-        Ok(Statement::LocalPush(spec, expr))
+        Ok(StatementData::LocalPush(spec, expr))
     }
 
-    fn parse_for(&mut self, iter: &mut Tokens) -> Res<Statement> {
+    fn parse_for(&mut self, iter: &mut Tokens) -> Res<StatementData> {
         let Some(Token::Alphanumeric(name)) = iter.next().map(tok) else {
             return self.error("expected name");
         };
@@ -676,16 +684,16 @@ impl Parser {
         let body = self.parse_block(body)?;
         let _name = self.locals.pop();
 
-        Ok(Statement::For(expr, body))
+        Ok(StatementData::For(expr, body))
     }
 
-    fn parse_while(&mut self, iter: &mut Tokens) -> Res<Statement> {
+    fn parse_while(&mut self, iter: &mut Tokens) -> Res<StatementData> {
         let (expr, Some(Token::Braced(body))) = self.parse_expr(iter)? else {
             return self.error("expected '{{'");
         };
 
         let body = self.parse_block(body)?;
-        Ok(Statement::While(expr, body))
+        Ok(StatementData::While(expr, body))
     }
 
     fn parse_expr<'a>(&mut self, iter: &mut Tokens<'a>) -> Res<(Expression, MaybeToken<'a>)> {
