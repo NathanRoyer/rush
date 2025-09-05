@@ -13,6 +13,7 @@ pub type MatchArm = (TypeList, Expression);
 pub type Block = Vec<Statement>;
 pub type LocalIndex = usize;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub enum Expression {
     Assignment(Option<Box<Expression>>, Box<Expression>),
@@ -55,6 +56,7 @@ pub struct Statement {
     pub line: usize,
 }
 
+/// Executor for functions from a [`Context`]
 pub struct Engine {
     pub context: Arc<Context>,
     pub stores: Stores,
@@ -166,7 +168,7 @@ impl Engine {
         ret
     }
 
-    pub fn run_block(&mut self, block: &Block) -> Result<Value, BlockExit> {
+    fn run_block(&mut self, block: &Block) -> Result<Value, BlockExit> {
         let local_offset = self.locals.len();
         let mut iter = block.iter();
 
@@ -253,7 +255,7 @@ impl Engine {
         ret
     }
 
-    pub fn eval(&mut self, expr: &Expression) -> Result<Value, BlockExit> {
+    fn eval(&mut self, expr: &Expression) -> Result<Value, BlockExit> {
         let value = match expr {
             Expression::Assignment(maybe_dst, src) => {
                 self.assign(maybe_dst, src)?;
@@ -423,7 +425,7 @@ impl Engine {
         Ok(value)
     }
 
-    pub fn assign(&mut self, maybe_dst: &Option<Box<Expression>>, src: &Expression) -> Result<(), BlockExit> {
+    fn assign(&mut self, maybe_dst: &Option<Box<Expression>>, src: &Expression) -> Result<(), BlockExit> {
         let new_value = self.eval(src)?;
 
         let Some(dst) = maybe_dst else {

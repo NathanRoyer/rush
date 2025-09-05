@@ -51,27 +51,32 @@ pub struct RushStr {
     ref_count: RefCount,
 }
 
-#[allow(dead_code)]
 pub struct ValueVec {
     inner: Vec<Value>,
     ref_count: RefCount,
 }
 
+/// Key-Value pair from a [`ValueMap`]
 pub struct Entry {
     pub key: Value,
     pub value: Value,
 }
 
+/// Internal map object
 pub struct ValueMap {
-    inner: Vec<Entry>,
-    sorted: bool,
+    pub inner: Vec<Entry>,
+    pub sorted: bool,
     ref_count: RefCount,
 }
 
+/// Index to a string in a [`Stores`]
 pub type StrIndex = usize;
+/// Index to a vector in a [`Stores`]
 pub type VecIndex = usize;
+/// Index to a map in a [`Stores`]
 pub type MapIndex = usize;
 
+/// Core underlying object of all [`Value`]s
 #[derive(Clone, Debug, Default)]
 pub enum BuiltIn {
     #[default]
@@ -88,9 +93,10 @@ pub enum BuiltIn {
     Name(NameIndex),
 }
 
+// note: order matters
 #[repr(usize)]
-enum BuiltInType {
-    Void = super::VOID_TYPE,
+pub enum BuiltInType {
+    Void = 0,
     Bool,
     Int,
     Reg,
@@ -131,23 +137,46 @@ pub fn init(ctx: &mut Context) {
     ctx.built_in_funcs.insert("int_from", num_from::<T_INT>);
     ctx.built_in_funcs.insert("f64_from", num_from::<T_F64>);
 
-    ctx.constants.push(Expression::Bool(false));
-    ctx.constants.push(Expression::Bool(true));
-    ctx.constants.push(Expression::None);
+    let mut push_const = |name: &str, expr: Expression| {
+        let item = Item::Const(ctx.constants.len());
+        ctx.constants.push(expr);
+        let path = [ctx.names.get(name)];
+        ctx.resolver.insert(path.into(), item);
+    };
 
-    let false_n = ctx.names.get("false");
-    let true_n = ctx.names.get("true");
-    let none_n = ctx.names.get("NONE");
-
-    ctx.resolver.insert([false_n].into(), Item::Const(0));
-    ctx.resolver.insert([true_n].into(), Item::Const(1));
-    ctx.resolver.insert([none_n].into(), Item::Const(2));
+    push_const("false", Expression::Bool(false));
+    push_const("true", Expression::Bool(true));
+    push_const("NONE", Expression::None);
 }
 
-// | +   | int | reg | f64 |
-// | int | int | int | f64 |
-// | reg | int | reg | f64 |
-// | f64 | f64 | f64 | f64 |
+// makes sure the stdlib maps well with the internal constants
+pub fn check_builtin_types(ctx: &Context) {
+    let check = |name: &str, index: TypeIndex| {
+        let Some(n) = ctx.types[index].canonical_path.last() else {
+            panic!("No canonical_path for built-in type {name}");
+        };
+
+        let item = &ctx.names[*n];
+
+        if name != item {
+            panic!("built-in type {name} has unexpected name: {item}");
+        }
+    };
+
+    assert_eq!(super::VOID_TYPE, BuiltInType::Void as _);
+
+    check("void", BuiltInType::Void as _);
+    check("bool", BuiltInType::Bool as _);
+    check("int", BuiltInType::Int as _);
+    check("reg", BuiltInType::Reg as _);
+    check("f64", BuiltInType::Float as _);
+    check("Str", BuiltInType::Str as _);
+    check("Vec", BuiltInType::Vec as _);
+    check("Map", BuiltInType::Map as _);
+    check("type_ref", BuiltInType::Type as _);
+    check("func_ref", BuiltInType::Func as _);
+    check("name", BuiltInType::Name as _);
+}
 
 enum Pair {
     Int(i128, i128),
@@ -157,6 +186,11 @@ enum Pair {
 
 fn prep_num(a: &BuiltIn, b: &BuiltIn) -> Option<Pair> {
     use BuiltIn::*;
+
+    // | +   | int | reg | f64 |
+    // | int | int | int | f64 |
+    // | reg | int | reg | f64 |
+    // | f64 | f64 | f64 | f64 |
 
     match (a, b) {
         (Int(a), Int(b)) => Some(Pair::Int(*a, *b)),

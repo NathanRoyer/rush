@@ -8,25 +8,34 @@ mod engine;
 mod parser;
 mod names;
 
-use parser::Error as ParsingError;
-use engine::{Engine, Expression};
-use builtin::BuiltIn;
+use engine::Expression;
 use names::Names;
 
-const VOID_TYPE: TypeIndex = 0;
+pub use builtin::{BuiltIn, Stores, Entry, ValueMap, StrIndex, VecIndex, MapIndex};
+pub use parser::Error as ParsingError;
+pub use engine::Engine;
 
+const VOID_TYPE: TypeIndex = builtin::BuiltInType::Void as TypeIndex;
+
+/// Rust functions exposed to rush code
 pub type BuiltInFunc = fn(&mut Engine, Vec<Value>) -> FuncRes;
-pub type FuncRes = Result<Value, Panic>;
+type FuncRes = Result<Value, Panic>;
 type TypeList = Vec<TypeIndex>;
-type ConstIndex = usize;
-type TypeIndex = usize;
-type FuncIndex = usize;
-type NameIndex = usize;
 
+/// Index to a constant expression in a [`Context`]
+pub type ConstIndex = usize;
+/// Index to a type in a [`Context`]
+pub type TypeIndex = usize;
+/// Index to a function in a [`Context`]
+pub type FuncIndex = usize;
+/// Index to an identifier in a [`Context`]
+pub type NameIndex = usize;
+
+/// Object that can represent any rush value
 #[derive(Clone, Debug)]
 pub struct Value {
-    built_in: BuiltIn,
-    type_index: TypeIndex,
+    pub built_in: BuiltIn,
+    pub type_index: TypeIndex,
 }
 
 impl Default for Value {
@@ -35,6 +44,7 @@ impl Default for Value {
     }
 }
 
+/// Runtime failure
 pub struct Panic {
     call_stack: Vec<(String, usize)>,
     message: &'static str,
@@ -128,6 +138,7 @@ struct Function {
     data: FuncData,
 }
 
+/// Registry of all defined items (function, type or constant)
 pub struct Context {
     built_in_funcs: LiteMap<&'static str, BuiltInFunc>,
     constants: Vec<Expression>,
@@ -167,6 +178,7 @@ impl Context {
         this.names = Names::default();
         builtin::init(&mut this);
         this.define("std", std_code).unwrap();
+        builtin::check_builtin_types(&this);
         this
     }
 

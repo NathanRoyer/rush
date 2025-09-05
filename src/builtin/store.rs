@@ -2,6 +2,7 @@ use super::*;
 
 pub type Store<T> = Vec<Option<T>>;
 
+/// Collection of reference-counted items
 #[derive(Default)]
 pub struct Stores {
     str_store: Store<RushStr>,

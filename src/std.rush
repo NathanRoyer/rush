@@ -73,6 +73,7 @@ impl reg {
     fn equal;
     fn less;
 
+    fn negate;
     fn from = reg_from;
     fn add(self: reg, other: any_num) -> any_num;
     fn clamp(self: reg, min: reg, max: reg) -> reg;
