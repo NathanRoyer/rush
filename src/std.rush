@@ -21,11 +21,11 @@ struct name {}
 
 /* core type methods */
 
-fn dump(self: any) -> Str;
 fn different(self: any, other: any) -> bool;
 fn greater(self: any, other: any) -> bool;
 fn equal(self: any, other: any) -> bool;
 fn less(self: any, other: any) -> bool;
+fn dump(self: any) -> Str;
 
 fn int_from(self: any) -> any;
 fn reg_from(self: any) -> any;
@@ -60,10 +60,10 @@ impl int {
 
     fn negate;
     fn from = int_from;
-    fn abs(self: int) -> any_int;
-    fn add(self: int, other: any_num) -> any_num;
-    fn clamp(self: int, min: int, max: int) -> int;
-    fn subtract(self: int, other: any_num) -> any_num;
+    fn abs(self) -> any_int;
+    fn add(self, other: any_num) -> any_num;
+    fn clamp(self, min: int, max: int) -> int;
+    fn subtract(self, other: any_num) -> any_num;
 }
 
 impl reg {
@@ -75,9 +75,9 @@ impl reg {
 
     fn negate;
     fn from = reg_from;
-    fn add(self: reg, other: any_num) -> any_num;
-    fn clamp(self: reg, min: reg, max: reg) -> reg;
-    fn subtract(self: reg, other: any_num) -> any_num;
+    fn add(self, other: any_num) -> any_num;
+    fn clamp(self, min: reg, max: reg) -> reg;
+    fn subtract(self, other: any_num) -> any_num;
 }
 
 impl f64 {
@@ -89,15 +89,15 @@ impl f64 {
 
     fn negate;
     fn from = f64_from;
-    fn abs(self: f64) -> f64;
-    fn add(self: f64, other: any_num) -> any_num;
-    fn clamp(self: f64, min: f64, max: f64) -> f64;
-    fn subtract(self: f64, other: any_num) -> any_num;
+    fn abs(self) -> f64;
+    fn add(self, other: any_num) -> any_num;
+    fn clamp(self, min: f64, max: f64) -> f64;
+    fn subtract(self, other: any_num) -> any_num;
 
-    fn round(self: f64) -> any_int;
-    fn floor(self: f64) -> any_int;
-    fn ceil(self: f64) -> any_int;
-    fn fract(self: f64) -> f64;
+    fn round(self) -> any_int;
+    fn floor(self) -> any_int;
+    fn ceil(self) -> any_int;
+    fn fract(self) -> f64;
 }
 
 impl Str {
@@ -107,9 +107,9 @@ impl Str {
     fn equal;
     fn less;
 
-    /* fn bytes(self: Str) -> bytes; */
-    /* fn chars(self: Str) -> Vec; */
-    fn add(self: Str, other: Str) -> Str;
+    /* fn bytes(self) -> bytes; */
+    /* fn chars(self) -> Vec; */
+    fn add(self, other: Str) -> Str;
 }
 
 impl Vec {
@@ -119,13 +119,13 @@ impl Vec {
     fn equal;
     fn less;
 
-    fn add(self: Vec, other: Vec) -> Vec;
-    fn len(self: Vec) -> reg;
-    fn get(self: Vec, index: any_int) -> any;
-    fn has(self: Vec, index: any_int) -> bool;
-    fn set(self: Vec, index: any_int, value: any) -> any;
+    fn add(self, other: Vec) -> Vec;
+    fn len(self) -> reg;
+    fn get(self, index: any_int) -> any;
+    fn has(self, index: any_int) -> bool;
+    fn set(self, index: any_int, value: any) -> any;
 
-    fn iter(self: Vec) -> VecIter {
+    fn iter(self) -> VecIter {
         VecIter {
             vec: self,
             index: 0,
@@ -140,14 +140,14 @@ impl Map {
     fn equal;
     fn less;
 
-    fn len(self: Vec) -> reg;
-    fn get(self: Map, key: any) -> any;
-    fn has(self: Map, key: any) -> bool;
-    fn nth_key(self: Map, index: any_int) -> any;
-    fn nth_value(self: Map, index: any_int) -> any;
-    fn set(self: Map, key: any, value: any) -> any;
+    fn len(self) -> reg;
+    fn get(self, key: any) -> any;
+    fn has(self, key: any) -> bool;
+    fn nth_key(self, index: any_int) -> any;
+    fn nth_value(self, index: any_int) -> any;
+    fn set(self, key: any, value: any) -> any;
 
-    fn iter(self: Map) -> EntryIter {
+    fn iter(self) -> EntryIter {
         EntryIter {
             map: self,
             index: 0,
@@ -278,7 +278,7 @@ impl NumIter {
     fn find;
     fn skip;
 
-    fn next(self: NumIter) -> int | void {
+    fn next(self) -> int | void {
         let then = self.i;
 
         if then < self.limit {
@@ -311,7 +311,7 @@ impl EntryIter {
     fn find;
     fn skip;
 
-    fn next(self: EntryIter) -> any {
+    fn next(self) -> any {
         let next = self.index + 1;
         let key = self.map.nth_key(self.index);
 
@@ -342,7 +342,7 @@ impl VecIter {
     fn find;
     fn skip;
 
-    fn next(self: VecIter) -> any {
+    fn next(self) -> any {
         let next = self.index + 1;
         let value = self.vec.get(self.index);
 
@@ -370,7 +370,7 @@ impl AvoidIter {
     fn find;
     fn skip;
 
-    fn next(self: AvoidIter) -> any {
+    fn next(self) -> any {
         let next = self.base.next();
 
         while next == self.avoided {
@@ -397,7 +397,7 @@ impl MapperIter {
     fn find;
     fn skip;
 
-    fn next(self: MapperIter) -> any {
+    fn next(self) -> any {
         let next = self.base.next();
 
         if next != NONE {
@@ -424,7 +424,7 @@ impl TakeIter {
     fn find;
     fn skip;
 
-    fn next(self: TakeIter) -> any {
+    fn next(self) -> any {
         if self.remaining == 0 {
             return NONE;
         };
@@ -451,7 +451,7 @@ impl UntilIter {
     fn find;
     fn skip;
 
-    fn next(self: UntilIter) -> any {
+    fn next(self) -> any {
         if self.reached {
             return;
         };
@@ -484,7 +484,7 @@ impl ChainedIter {
     fn find;
     fn skip;
 
-    fn next(self: ChainedIter) -> any {
+    fn next(self) -> any {
         if self.switched {
             return self.b.next();
         };
@@ -505,7 +505,7 @@ impl ChainedIter {
 fn println();
 
 type any_int = reg | int;
-type any_num = reg | int;
+type any_num = reg | int | f64;
 
 /* todo
 
@@ -550,6 +550,8 @@ impl byte_w {
     fn write_i16(self: byte_w, data: int);
     fn write_i32(self: byte_w, data: int);
     fn write_i64(self: byte_w, data: int);
+
+    fn flush(self: byte_w);
 }
 
 fn open_r(path: Str) -> byte_r;

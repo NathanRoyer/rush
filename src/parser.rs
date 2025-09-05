@@ -102,8 +102,9 @@ impl Parser {
             self.line = token.line;
 
             let maybe_decl = match &**token {
-                Token::Const => Some(Self::decl_const as Decl),
                 Token::Struct => Some(Self::decl_type as Decl),
+                Token::Const => Some(Self::decl_const as Decl),
+                Token::Trait => Some(Self::decl_type as Decl),
                 Token::Type => Some(Self::decl_type as Decl),
                 Token::Fn => Some(Self::decl_fn as Decl),
                 Token::Impl => None,
@@ -147,6 +148,7 @@ impl Parser {
             canonical_path: Arc::new([]),
             data: TypeData::Struct(Vec::new()),
             methods: LiteMap::new(),
+            traits: LiteMap::new(),
         };
 
         let index = self.context.types.len();
@@ -200,6 +202,12 @@ impl Parser {
     fn decl_impl(&mut self, iter: &mut Tokens) -> Res<()> {
         let index = self.parse_type_ref(iter, false)?;
 
+        let handle = &mut self.context.types[index];
+
+        if !matches!(handle.data, TypeData::Struct(_)) {
+            return self.error("'impl' is only valid for structs");
+        }
+
         let Some(Token::Braced(tokens)) = iter.next().map(tok) else {
             return self.error("expected '{{'");
         };
@@ -235,6 +243,7 @@ impl Parser {
 
             match &**token {
                 Token::Struct => self.define_struct(iter)?,
+                Token::Trait => self.define_trait(iter)?,
                 Token::Const => self.define_const(iter)?,
                 Token::Type => self.define_alias(iter)?,
                 Token::Impl => self.define_impl(iter)?,
@@ -376,6 +385,39 @@ impl Parser {
         Ok(())
     }
 
+    fn define_trait(&mut self, iter: &mut Tokens) -> Res<()> {
+        let name = self.parse_name(iter)?;
+        let canonical_path = self.rel_path(name);
+        let index = self.index_of(name);
+
+        let Some(Token::Braced(tokens)) = iter.next().map(tok) else {
+            return self.error("expected '{{'");
+        };
+
+        let mut iter = tokens.iter();
+        let mut methods = Vec::new();
+
+        while let Some(token) = iter.next() {
+            self.line = token.line;
+
+            let Token::Fn = &**token else {
+                return self.error("expected 'fn'");
+            };
+
+            methods.push(self.parse_name(&mut iter)?);
+
+            let Token::Semi = &**token else {
+                return self.error("expected ';'");
+            };
+        }
+
+        let handle = &mut self.context.types[index];
+        handle.canonical_path = canonical_path;
+        handle.data = TypeData::Trait(methods);
+
+        Ok(())
+    }
+
     fn define_struct(&mut self, iter: &mut Tokens) -> Res<()> {
         let name = self.parse_name(iter)?;
         let canonical_path = self.rel_path(name);
@@ -452,7 +494,7 @@ impl Parser {
         };
 
         let mut par_iter = param_tokens.iter();
-        let parameters = self.parse_param_defs(&mut par_iter)?;
+        let parameters = self.parse_param_defs(&mut par_iter, current_impl)?;
 
         let (return_type, next) = match iter.next().map(tok) {
             Some(Token::SigRet) => self.parse_type_spec(iter)?,
@@ -493,13 +535,20 @@ impl Parser {
         Ok(())
     }
 
-    fn parse_param_defs(&mut self, iter: &mut Tokens) -> Res<Vec<ParamDef>> {
+    fn parse_param_defs(&mut self, iter: &mut Tokens, current_impl: Option<TypeIndex>) -> Res<Vec<ParamDef>> {
         let mut params = Vec::new();
 
         while iter.len() != 0 {
             let name = self.parse_name(iter)?;
+            let next = iter.next().map(tok);
 
-            let Some(Token::Colon) = iter.next().map(tok) else {
+            let tuple = (&next, current_impl, params.is_empty());
+            if let (None | Some(Token::Comma), Some(index), true) = tuple {
+                params.push((name, vec![index]));
+                continue;
+            }
+
+            let Some(Token::Colon) = next else {
                 return self.error("expected ':'");
             };
 

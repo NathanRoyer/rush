@@ -377,11 +377,12 @@ impl Engine {
                     return Panic::new("unexpected field(s)", []).as_exit();
                 }
 
-                let index = Some(*type_index);
-                self.stores.new_map(index, entries, false)
+                let mut value = self.stores.new_map(entries, false);
+                value.type_index = *type_index;
+                value
             },
             Expression::ConstStr(data) => {
-                let mut string = String::new();
+                let mut string = String::with_capacity(data.lit_end.len());
 
                 for part in &data.dyn_parts {
                     string += &part.prefix;
@@ -482,18 +483,32 @@ impl Engine {
             return Ok(value);
         }
 
-        if spec.contains(&value.built_in.type_index()) {
+        let inner_type_index = value.built_in.type_index();
+
+        if spec.contains(&inner_type_index) {
             return Ok(Value::from(value.built_in));
         }
 
-        let mut failed = Vec::new();
         let ctx = self.context.clone();
 
         for index in spec {
-            let type_val = Value::from(BuiltIn::Type(*index));
             let from = &self.context.names.from;
             let handle = &ctx.types[*index];
-            failed.push(type_val.clone());
+
+            if let TypeData::Trait(_) = &handle.data {
+                let fg_type = &ctx.types[value.type_index];
+                let bg_type = &ctx.types[inner_type_index];
+
+                if fg_type.traits.contains_key(&index) {
+                    return Ok(value);
+                }
+
+                if bg_type.traits.contains_key(&index) {
+                    return Ok(Value::from(value.built_in));
+                }
+
+                continue;
+            }
 
             if let TypeData::Alias(list) = &handle.data {
                 match self.type_check(value.clone(), list, panic_msg) {
@@ -513,6 +528,7 @@ impl Engine {
             }
 
             if ret.type_index != *index {
+                let type_val = Value::from(BuiltIn::Type(*index));
                 let values = [type_val, value.clone(), ret];
                 let message = "unexpected 'from' method return value";
                 return Err(Panic::new(message, values));
@@ -521,6 +537,8 @@ impl Engine {
             return Ok(ret);
         }
 
+        let to_value = |i: &TypeIndex| Value::from(BuiltIn::Type(*i));
+        let failed = spec.iter().map(to_value).collect();
         let failed = self.stores.new_vec(failed);
         Err(Panic::new(panic_msg, [value, failed]))
     }

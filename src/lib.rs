@@ -113,6 +113,7 @@ struct Field {
 }
 
 enum TypeData {
+    Trait(Vec<NameIndex>),
     Struct(Vec<Field>),
     Alias(TypeList),
 }
@@ -121,6 +122,7 @@ struct Type {
     canonical_path: ItemPath,
     data: TypeData,
     methods: LiteMap<NameIndex, FuncIndex>,
+    traits: LiteMap<TypeIndex, ()>,
 }
 
 #[derive(Clone)]
@@ -199,6 +201,35 @@ impl Context {
         out
     }
 
+    fn tag_trait_fellows(&mut self) {
+        let len = self.types.len();
+        let mut spec = Vec::new();
+
+        for trait_index in 0..len {
+            let handle = &self.types[trait_index];
+
+            let TypeData::Trait(methods) = &handle.data else {
+                continue;
+            };
+
+            spec.extend_from_slice(&methods);
+
+            for type_index in 0..len {
+                let handle = &mut self.types[type_index];
+
+                let is_fellow = spec
+                    .iter()
+                    .all(|name| handle.methods.contains_key(name));
+
+                if is_fellow {
+                    handle.traits.insert(trait_index, ());
+                }
+            }
+
+            spec.clear();
+        }
+    }
+
     pub fn define(&mut self, mod_name: &str, module: &str) -> Result<(), ParsingError> {
         let mut slice = module;
         let Ok(tokens) = tokenizer::tokenize(&mut slice) else {
@@ -215,7 +246,8 @@ impl Context {
         parser::define(self, mod_name, &tokens)
     }
 
-    pub fn run(self) -> Result<(), String> {
+    pub fn run(mut self) -> Result<(), String> {
+        self.tag_trait_fellows();
         let this = std::sync::Arc::new(self);
         let backup = this.clone();
         let funcs = &backup.functions;

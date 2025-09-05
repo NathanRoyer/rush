@@ -4,8 +4,9 @@ use std::cmp::Ordering;
 use std::fmt::Write;
 use std::sync::Arc;
 
-pub use store::Stores;
+pub use store::{Stores, Entry, ValueMap, StrIndex, VecIndex, MapIndex, RefCount};
 pub use util::dump;
+
 use util::{println, dump_entry, get, set, ordering, different, len, has, nth};
 use math::{add, subtract, clamp, abs};
 
@@ -43,38 +44,6 @@ mod util;
 - map: <eq>, <iter>, <index>, <edit>, .keep_sorted, .keys
 
 */
-
-pub type RefCount = Arc<()>;
-
-pub struct RushStr {
-    inner: String,
-    ref_count: RefCount,
-}
-
-pub struct ValueVec {
-    inner: Vec<Value>,
-    ref_count: RefCount,
-}
-
-/// Key-Value pair from a [`ValueMap`]
-pub struct Entry {
-    pub key: Value,
-    pub value: Value,
-}
-
-/// Internal map object
-pub struct ValueMap {
-    pub inner: Vec<Entry>,
-    pub sorted: bool,
-    ref_count: RefCount,
-}
-
-/// Index to a string in a [`Stores`]
-pub type StrIndex = usize;
-/// Index to a vector in a [`Stores`]
-pub type VecIndex = usize;
-/// Index to a map in a [`Stores`]
-pub type MapIndex = usize;
 
 /// Core underlying object of all [`Value`]s
 #[derive(Clone, Debug, Default)]

@@ -16,55 +16,18 @@ pub struct CodeStr<L> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token<'a> {
-    Dot,
-    Then,
-    Star,
-    Plus,
-    Minus,
-    Equal,
-    Slash,
-    Comma,
-    SigRet,
-    Bubble,
+    Or, Semi, Colon, Question, Path,
+    Dot, Then, Star, Plus, Minus, Equal, Slash, Comma, SigRet, Bubble,
+    IsEqual, Inferior, Superior, Different, LessEqual, GreaterEqual,
+    If, For, Else, Loop, Match, While, Break, Return, Continue,
+    Fn, In, Let, Use, Any, Impl, Type, Const, Trait, Struct,
 
-    IsEqual,
-    Inferior,
-    Superior,
-    Different,
-    LessEqual,
-    GreaterEqual,
-
-    Tuple(Vec<TokenData<'a>>),
-    Braced(Vec<TokenData<'a>>),
     Bracketed(Vec<TokenData<'a>>),
+    Braced(Vec<TokenData<'a>>),
+    Tuple(Vec<TokenData<'a>>),
 
-    Or,
-    Semi,
-    Colon,
-    Question,
-    Path,
     CodeStr(CodeStr<&'a str>),
     Alphanumeric(&'a str),
-
-    Fn,
-    In,
-    Let,
-    Use,
-    Any,
-    Impl,
-    Type,
-    Const,
-    Struct,
-
-    If,
-    For,
-    Else,
-    Loop,
-    Match,
-    While,
-    Break,
-    Return,
-    Continue,
 }
 
 const SYMBOLS: &[(&str, Token)] = &[
@@ -267,6 +230,7 @@ fn try_alphanumeric<'a>(text: &mut &'a str) -> Option<Token<'a>> {
         "impl" => Token::Impl,
         "type" => Token::Type,
         "const" => Token::Const,
+        "trait" => Token::Trait,
         "struct" => Token::Struct,
 
         "if" => Token::If,
