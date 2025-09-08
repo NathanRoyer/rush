@@ -1,13 +1,16 @@
+use std::marker::PhantomData;
+use std::fmt;
 use super::*;
 
 pub type RefCount = Arc<()>;
+pub struct RefIndex<T>(usize, PhantomData<T>);
 
 /// Index to a string in a [`Stores`]
-pub type StrIndex = usize;
+pub type StrIndex = RefIndex<RushStr>;
 /// Index to a vector in a [`Stores`]
-pub type VecIndex = usize;
+pub type VecIndex = RefIndex<ValueVec>;
 /// Index to a map in a [`Stores`]
-pub type MapIndex = usize;
+pub type MapIndex = RefIndex<ValueMap>;
 
 pub struct RushStr {
     inner: String,
@@ -65,15 +68,15 @@ impl<T: GetRefCount> Default for Store<T> {
 }
 
 impl<T: GetRefCount> Store<T> {
-    fn get(&self, index: usize) -> Option<&T> {
-        self.slots.get(index)?.as_ref()
+    fn get(&self, index: RefIndex<T>) -> Option<&T> {
+        self.slots.get(index.0)?.as_ref()
     }
 
-    fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        self.slots.get_mut(index)?.as_mut()
+    fn get_mut(&mut self, index: RefIndex<T>) -> Option<&mut T> {
+        self.slots.get_mut(index.0)?.as_mut()
     }
 
-    fn place(&mut self, value: T) -> usize {
+    fn place(&mut self, value: T) -> RefIndex<T> {
         let mut iter = self.slots.iter();
         let mut i = self.slots.len();
 
@@ -83,7 +86,7 @@ impl<T: GetRefCount> Store<T> {
         }
 
         self.slots[i] = Some(value);
-        i
+        RefIndex::<T>(i, PhantomData)
     }
 
     fn garbage_collect(&mut self) {
@@ -179,3 +182,17 @@ impl Stores {
         self.map_store.garbage_collect();
     }
 }
+
+impl<T: GetRefCount> fmt::Debug for RefIndex<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        self.0.fmt(f)
+    }
+}
+
+impl<T: GetRefCount> Clone for RefIndex<T> {
+    fn clone(&self) -> Self {
+        Self(self.0, PhantomData)
+    }
+}
+
+impl<T: GetRefCount> Copy for RefIndex<T> { }
